@@ -1,0 +1,19 @@
+<svg width="680" height="680" viewBox="0 0 680 680" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Icono Mi Refugio</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0E8DC"/>
+      <stop offset="100%" stop-color="#E0D4C4"/>
+    </linearGradient>
+  </defs>
+  <rect width="680" height="680" rx="150" fill="url(#bg)"/>
+  <line x1="250" y1="248" x2="430" y2="248" stroke="#C9B89A" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="340" cy="248" r="3" fill="#C8A85A" opacity="0.7"/>
+  <text x="340" y="338" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="400" font-style="italic" fill="#5A4E45" text-anchor="middle" letter-spacing="4">mi</text>
+  <text x="340" y="418" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="400" font-style="italic" fill="#3A3530" text-anchor="middle" letter-spacing="2">refugio</text>
+  <line x1="250" y1="453" x2="430" y2="453" stroke="#C9B89A" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="340" cy="453" r="3" fill="#C8A85A" opacity="0.7"/>
+  <circle cx="290" cy="490" r="2" fill="#8FAF8A" opacity="0.5"/>
+  <circle cx="340" cy="500" r="2.5" fill="#C8A85A" opacity="0.5"/>
+  <circle cx="390" cy="490" r="2" fill="#8FAF8A" opacity="0.5"/>
+</svg>
