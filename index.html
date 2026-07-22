@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#9B8EC4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mi Refugio">
+  <title>Mi Refugio</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── INICIO ── -->
+  <div id="screen-inicio" class="screen active">
+    <div class="page-header">
+      <h1 class="page-title" id="greeting">Buenos días</h1>
+      <button onclick="navigateTo('ajustes')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);-webkit-tap-highlight-color:transparent;">⚙️</button>
+    </div>
+    <div class="scroll-area">
+      <div class="section-label" id="date-label"></div>
+      <div id="checklists-home"></div>
+      <div id="notes-home"></div>
+      <div style="height:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ── CHECKLISTS ── -->
+  <div id="screen-listas" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Mis listas</h1>
+    </div>
+    <div class="scroll-area">
+      <div id="checklists-list"></div>
+    </div>
+  </div>
+
+  <!-- ── NOTAS ── -->
+  <div id="screen-notas" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Notas</h1>
+    </div>
+    <div class="scroll-area">
+      <div class="notes-grid" id="notes-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── AJUSTES ── -->
+  <div id="screen-ajustes" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Ajustes</h1>
+    </div>
+    <div class="scroll-area">
+      <div class="settings-section-title">Apariencia</div>
+      <div class="settings-item">
+        <div class="item-left">🌙 Modo oscuro</div>
+        <button class="toggle" id="dark-toggle"></button>
+      </div>
+      <div class="settings-section-title">Notificaciones</div>
+      <div class="settings-item">
+        <div class="item-left">🔔 Recordatorios (9:00 y 21:00)</div>
+        <button class="btn-primary" onclick="initNotifications()"
+          style="width:auto;padding:8px 16px;font-size:13px;">Activar</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);padding:0 4px 8px;line-height:1.5;">
+        Te avisaremos por la mañana y por la noche para revisar tus listas.
+      </div>
+      <div style="text-align:center;padding:32px 0;color:var(--text-muted);font-size:12px;">
+        Mi Refugio v2.0 🌿
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM NAV ── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="inicio">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">Inicio</div>
+    </button>
+    <button class="nav-btn" data-tab="listas">
+      <div class="nav-icon">✅</div>
+      <div class="nav-label">Listas</div>
+    </button>
+    <button class="nav-btn" data-tab="notas">
+      <div class="nav-icon">📝</div>
+      <div class="nav-label">Notas</div>
+    </button>
+  </nav>
+
+  <button class="fab" id="fab" style="display:none;">＋</button>
+
+</div>
+
+<!-- ── CHECKLIST SHEET ── -->
+<div class="overlay" id="checklist-sheet" onclick="closeChecklistSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheet-title">Nueva lista</div>
+    <input type="hidden" id="form-id">
+
+    <div class="input-group">
+      <label class="input-label">Nombre de la lista</label>
+      <input class="input-field" id="form-name" placeholder="Ej: Rutina mañana">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Color</label>
+      <div class="color-picker" id="color-picker"></div>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Frecuencia</label>
+      <select class="input-field" id="form-freq">
+        <option value="daily">Cada día</option>
+        <option value="weekly">Cada semana</option>
+        <option value="2">Cada 2 días</option>
+        <option value="3">Cada 3 días</option>
+        <option value="4">Cada 4 días</option>
+        <option value="5">Cada 5 días</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Items</label>
+      <div id="items-container"></div>
+      <button class="add-item-btn" onclick="addItemRow()">+ Añadir item</button>
+    </div>
+
+    <button class="btn-primary" onclick="saveChecklist()">Guardar lista</button>
+    <button class="btn-ghost" onclick="closeChecklistSheet()">Cancelar</button>
+    <button class="btn-danger" id="delete-btn" onclick="deleteChecklist()" style="display:none;">Eliminar lista</button>
+  </div>
+</div>
+
+<!-- ── NOTE SHEET ── -->
+<div class="overlay" id="note-sheet" onclick="closeNoteSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="note-sheet-title">Nueva nota</div>
+    <input type="hidden" id="note-form-id">
+
+    <div class="input-group">
+      <label class="input-label">Color</label>
+      <div class="color-picker" id="note-color-picker"></div>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Texto</label>
+      <textarea class="input-field" id="note-text" placeholder="Escribe aquí tu nota..."
+        style="min-height:120px;resize:none;line-height:1.6;"></textarea>
+    </div>
+
+    <button class="btn-primary" onclick="saveNote()">Guardar nota</button>
+    <button class="btn-ghost" onclick="closeNoteSheet()">Cancelar</button>
+    <button class="btn-danger" id="note-delete-btn" onclick="deleteNote()" style="display:none;">Eliminar nota</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="firebase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
