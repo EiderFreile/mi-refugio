@@ -1528,10 +1528,10 @@ function esTCPoFlightCrew(dep){
   return d.includes('tcp') || d.includes('flight crew');
 }
 
-// Personas con caducidad de este mes o anteriores (caducadas incluidas, por si hay alguna pendiente de una baja etc.)
+// Personas con caducidad de este mes, el siguiente, o anteriores (caducadas incluidas, por si hay alguna pendiente de una baja etc.)
 function getFormacionesParaAvisar(){
   const now=new Date();
-  const endKey=localKey(new Date(now.getFullYear(), now.getMonth()+1, 0));
+  const endKey=localKey(new Date(now.getFullYear(), now.getMonth()+2, 0));
   return getFormacionesSorted().filter(p=>p.caducidad && p.caducidad<=endKey);
 }
 
