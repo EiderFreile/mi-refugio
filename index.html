@@ -166,6 +166,13 @@
     <div class="scroll-area"><div id="casa-area"></div></div>
   </div>
 
+  <div id="screen-otras" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Otras tareas y planes</h1>
+    </div>
+    <div class="scroll-area"><div id="otras-area"></div></div>
+  </div>
+
   <div id="screen-formaciones" class="screen">
     <div class="page-header" style="justify-content:flex-start;gap:16px;">
       <h1 class="page-title">Formaciones MSM</h1>
@@ -507,17 +514,6 @@
         <option value="necesidad">⚪ Según necesidad</option>
       </select>
     </div>
-    <div class="input-group" id="casa-tarea-dia-group"><label class="input-label">Día de la semana</label>
-      <select class="input-field" id="casa-tarea-dia">
-        <option value="0">Lunes</option>
-        <option value="1">Martes</option>
-        <option value="2">Miércoles</option>
-        <option value="3">Jueves</option>
-        <option value="4">Viernes</option>
-        <option value="5">Sábado</option>
-        <option value="6">Domingo</option>
-      </select>
-    </div>
     <div class="input-group" id="casa-tarea-semanas-group">
       <label class="input-label">¿Qué semanas del mes toca?</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;" id="casa-semanas-chips"></div>
@@ -526,6 +522,28 @@
     <button class="btn-primary" onclick="saveCasaTarea()">Guardar</button>
     <button class="btn-ghost" onclick="closeCasaTareaSheet()">Cancelar</button>
     <button class="btn-danger" id="casa-tarea-delete-btn" onclick="deleteCasaTarea()" style="display:none;">Eliminar</button>
+  </div>
+</div>
+
+<!-- OTRAS TAREAS Y PLANES · SHEET DE UN DÍA (ánimo + planes de ese día) -->
+<div class="overlay" id="otras-dia-sheet" onclick="closeOtrasDiaSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="otras-dia-titulo">Día</div>
+    <div class="input-group">
+      <label class="input-label">¿Cómo te sientes hoy?</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="otras-mood-chips"></div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Planes / tareas de este día</label>
+      <div id="otras-dia-tareas-list"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input class="input-field" id="otras-tarea-nueva" placeholder="Añadir plan o tarea..." style="flex:1;" onkeydown="if(event.key==='Enter')addOtrasTarea()">
+      <input class="input-field" id="otras-tarea-hora" type="time" style="width:100px;">
+      <button class="remove-btn" style="color:var(--pink);border-color:var(--pink);font-size:20px;" onclick="addOtrasTarea()">+</button>
+    </div>
+    <button class="btn-ghost" onclick="closeOtrasDiaSheet()">Cerrar</button>
   </div>
 </div>
 
