@@ -2,8 +2,8 @@
 
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
-const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio'},{id:'listas',ico:'✅',lbl:'Listas'},{id:'porhacer',ico:'✍️',lbl:'Por hacer'},{id:'notas',ico:'📝',lbl:'Notas'}];
-const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen'},{id:'tareas',ico:'✅',lbl:'Tareas'},{id:'agenda',ico:'📅',lbl:'Agenda'},{id:'mensual',ico:'🗓️',lbl:'Mensual'},{id:'semanal',ico:'📆',lbl:'Semanal'},{id:'diario',ico:'🕐',lbl:'Diario'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease'},{id:'formaciones',ico:'🎓',lbl:'MSM'}];
+const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'listas',ico:'✅',lbl:'Listas',col:'peach'},{id:'porhacer',ico:'✍️',lbl:'Por hacer',col:'peach'},{id:'notas',ico:'📝',lbl:'Notas',col:'blue'}];
+const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen',col:'yellow'},{id:'tareas',ico:'✅',lbl:'Tareas',col:'green'},{id:'agenda',ico:'📅',lbl:'Agenda',col:'blue'},{id:'mensual',ico:'🗓️',lbl:'Mensual',col:'lav'},{id:'semanal',ico:'📆',lbl:'Semanal',col:'pink'},{id:'diario',ico:'🕐',lbl:'Diario',col:'teal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease',col:'blue'},{id:'formaciones',ico:'🎓',lbl:'MSM',col:'peach'}];
 
 let state={
   mode:localStorage.getItem('mode')||'day', tab:'inicio',
@@ -12,6 +12,7 @@ let state={
   notes:{}, gastos:{}, gastosWeek:{}, categorias:{},
   budget:parseFloat(localStorage.getItem('budget')||'0'),
   tareas:{}, eventos:{}, tareaCats:{}, porhacer:{}, wlIn:{}, wlOut:{}, wlInTemplate:{departamentos:{}, docs:{}}, formaciones:{}, mensualTareas:{}, semanaNotas:{},
+  casaTareas:{}, casaHecho:{},
 };
 
 let clColor=COLORS[0].id, noteColor=COLORS[1].id, clItems=[], editingPasos=[];
@@ -23,6 +24,8 @@ let mensualMonthsCount=1, mensualBaseDate=new Date();
 let semanalMonthsCount=1, semanalBaseDate=new Date();
 let diaVistaSelected=todayKey(), diarioCalMonth=new Date();
 let editingSubtareas=[];
+let casaBaseDate=new Date();
+let editingSemanasActivas={1:true,2:true,3:true,4:true,5:true};
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded',()=>{
@@ -182,6 +185,8 @@ function initListeners(){
   DB.listen('refugio2/formaciones',d=>{state.formaciones=d||{};renderFormaciones();renderMiniCal();});
   DB.listen('refugio2/mensualTareas',d=>{state.mensualTareas=d||{};if(state.tab==='mensual')renderMensual();if(state.tab==='semanal')renderSemanal();if(state.tab==='diario')renderDiario();});
   DB.listen('refugio2/semanaNotas',d=>{state.semanaNotas=d||{};if(state.tab==='semanal')renderSemanal();});
+  DB.listen('refugio2/casaTareas',d=>{state.casaTareas=d||{};if(state.tab==='casa')renderCasa();});
+  DB.listen('refugio2/casaHecho',d=>{state.casaHecho=d||{};if(state.tab==='casa')renderCasa();});
 }
 
 // ── Mode ──
@@ -197,11 +202,15 @@ function setMode(mode){
 // ── Nav ──
 function renderNav(){
   const tabs=state.mode==='day'?DAY_TABS:WORK_TABS;
-  document.getElementById('bottom-nav').innerHTML=tabs.map(t=>`
-    <button class="nav-btn ${state.tab===t.id?'active':''}" onclick="navigateTo('${t.id}')">
-      <div class="nav-icon">${t.ico}</div>
-      <div class="nav-label">${t.lbl}</div>
-    </button>`).join('');
+  document.getElementById('bottom-nav').innerHTML=tabs.map(t=>{
+    const isActive=state.tab===t.id;
+    const c=t.col||'lav';
+    return `
+    <button class="nav-btn ${isActive?'active':''}" style="${isActive?`background:var(--${c}-light)!important;`:''}" onclick="navigateTo('${t.id}')">
+      <div class="nav-icon" style="${isActive?`background:var(--${c}-light)!important;color:var(--${c})!important;`:''}">${t.ico}</div>
+      <div class="nav-label" style="${isActive?`color:var(--${c})!important;`:''}">${t.lbl}</div>
+    </button>`;
+  }).join('');
 }
 
 function navigateTo(tab){
@@ -216,6 +225,7 @@ function navigateTo(tab){
   if(tab==='mensual') renderMensual();
   if(tab==='semanal') renderSemanal();
   if(tab==='diario') renderDiario();
+  if(tab==='casa') renderCasa();
   const fab=document.getElementById('fab');
   if(fab) fab.style.display = tab==='ajustes' ? 'none' : 'flex';
 }
@@ -1453,6 +1463,12 @@ function weekLabel(mondayKey){
   const sun=new Date(mon); sun.setDate(mon.getDate()+6);
   return `${mon.toLocaleDateString('es-ES',{day:'numeric',month:'short'})} – ${sun.toLocaleDateString('es-ES',{day:'numeric',month:'short'})}`;
 }
+function isDiaEnSemana(diaKey, mondayKey){
+  if(!diaKey||!mondayKey) return false;
+  const [y,m,d]=mondayKey.split('-').map(Number);
+  const mon=new Date(y,m-1,d); const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  return diaKey>=localKey(mon) && diaKey<=localKey(sun);
+}
 function diaLabelCorta(iso){
   if(!iso) return '';
   const [y,m,d]=iso.split('-').map(Number);
@@ -1461,6 +1477,18 @@ function diaLabelCorta(iso){
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
 
+// Paleta de colores para dar variedad a las columnas (Mensual, Semanal...)
+const PALETTE=[
+  {c:'var(--lav)',bg:'var(--lav-light)'},
+  {c:'var(--pink)',bg:'var(--pink-light)'},
+  {c:'var(--blue)',bg:'var(--blue-light)'},
+  {c:'var(--peach)',bg:'var(--peach-light)'},
+  {c:'var(--teal)',bg:'var(--teal-light)'},
+  {c:'var(--yellow)',bg:'var(--yellow-light)'},
+  {c:'var(--green)',bg:'var(--green-light)'},
+];
+function paletteAt(i){ return PALETTE[i%PALETTE.length]; }
+
 function setMensualCount(n){ mensualMonthsCount=n; renderMensual(); }
 function mensualNav(dir){
   mensualBaseDate.setMonth(mensualBaseDate.getMonth()+dir);
@@ -1468,10 +1496,11 @@ function mensualNav(dir){
   renderMensual();
 }
 
-function renderMensualTareaRow(t){
+function renderMensualTareaRow(t, pal){
   const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const boxStyle = (t.done && pal) ? `style="background:${pal.c};border-color:${pal.c};"` : '';
   return `<div class="check-item" onclick="openMensualTareaSheet('${t.id}')">
-    <div class="check-box ${t.done?'checked':''}" onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
+    <div class="check-box ${t.done?'checked':''}" ${boxStyle} onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
     <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.name}</span>
   </div>`;
 }
@@ -1495,11 +1524,12 @@ function renderMensual(){
     ${[1,2,3].map(n=>`<button class="cal-view-btn ${mensualMonthsCount===n?'active':''}" onclick="setMensualCount(${n})">${n} mes${n>1?'es':''}</button>`).join('')}
   </div>
   <div class="multi-col-board" style="--cols:${mensualMonthsCount};">
-    ${meses.map(mk=>{
+    ${meses.map((mk,i)=>{
+      const pal=paletteAt(i);
       const tareasMes=allTareas.filter(t=>t.mes===mk).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-      return `<div class="kanban-col">
-        <div class="kanban-col-title"><span>${monthLabel(mk)}</span><span class="kanban-col-count">${tareasMes.length}</span></div>
-        ${tareasMes.length?tareasMes.map(t=>renderMensualTareaRow(t)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
+      return `<div class="kanban-col" style="background:${pal.bg};">
+        <div class="kanban-col-title" style="border-bottom-color:${pal.c};"><span>${monthLabel(mk)}</span><span class="kanban-col-count" style="color:${pal.c};">${tareasMes.length}</span></div>
+        ${tareasMes.length?tareasMes.map(t=>renderMensualTareaRow(t,pal)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
       </div>`;
     }).join('')}
   </div>
@@ -1666,13 +1696,15 @@ function semanalNav(dir){
   renderSemanal();
 }
 
-function renderSemanalTareaRow(t){
+function renderSemanalTareaRow(t, pal, viaSub){
   const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const boxStyle = (t.done && pal) ? `style="background:${pal.c};border-color:${pal.c};"` : '';
+  const dotColor = pal ? pal.c : 'var(--lav)';
   return `<div class="check-item" onclick="openMensualTareaSheet('${t.id}')">
-    <div class="check-box ${t.done?'checked':''}" onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
-    <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.name}</span>
+    <div class="check-box ${t.done?'checked':''}" ${boxStyle} onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
+    <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.name}${viaSub?` <span style="color:${dotColor};font-size:10px;font-weight:700;">· subtarea esta semana</span>`:''}</span>
     <span onclick="event.stopPropagation();toggleTareaPrioridad('${t.id}')" style="font-size:14px;cursor:pointer;flex-shrink:0;" title="Prioridad de la semana">${t.prioridad?'⭐':'☆'}</span>
-    ${t.dia?`<span style="font-size:10px;font-weight:700;color:var(--lav);flex-shrink:0;margin-left:6px;white-space:nowrap;">${diaLabelCorta(t.dia)}</span>`:''}
+    ${t.dia?`<span style="font-size:10px;font-weight:700;color:${dotColor};flex-shrink:0;margin-left:6px;white-space:nowrap;">${diaLabelCorta(t.dia)}</span>`:''}
   </div>`;
 }
 
@@ -1694,19 +1726,26 @@ function renderSemanal(){
     ${[1,2,3].map(n=>`<button class="cal-view-btn ${semanalMonthsCount===n?'active':''}" onclick="setSemanalCount(${n})">${n} mes${n>1?'es':''}</button>`).join('')}
   </div>`;
 
+  let colorIdx=0;
   meses.forEach(mk=>{
     const weeks=weeksOfMonth(mk);
     html+=`<div class="section-label" style="margin-top:20px;">${monthLabel(mk)}</div>
     <div class="multi-col-board" style="--cols:${weeks.length};">
       ${weeks.map(wk=>{
-        const tareasSemana=allTareas.filter(t=>t.semana===wk).sort((a,b)=>{
+        const pal=paletteAt(colorIdx++);
+        // Tareas que tocan esta semana: bien porque su propia "semana" coincide, bien porque tienen alguna subtarea con "día" dentro de esta semana (para que la tarea madre se vea aunque ella no tenga semana propia)
+        const tareasSemana=allTareas.filter(t=>{
+          if(t.semana===wk) return true;
+          if(t.subtareas) return Object.values(t.subtareas).some(s=>isDiaEnSemana(s.dia, wk));
+          return false;
+        }).map(t=>({...t, __viaSub: t.semana!==wk})).sort((a,b)=>{
           if(!!a.prioridad!==!!b.prioridad) return a.prioridad?-1:1;
           if((a.dia||'')!==(b.dia||'')) return (a.dia||'zzzz').localeCompare(b.dia||'zzzz');
           return (a.createdAt||0)-(b.createdAt||0);
         });
-        return `<div class="kanban-col">
-          <div class="kanban-col-title"><span>${weekLabel(wk)}</span><span class="kanban-col-count">${tareasSemana.length}</span></div>
-          ${tareasSemana.length?tareasSemana.map(t=>renderSemanalTareaRow(t)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
+        return `<div class="kanban-col" style="background:${pal.bg};">
+          <div class="kanban-col-title" style="border-bottom-color:${pal.c};"><span>${weekLabel(wk)}</span><span class="kanban-col-count" style="color:${pal.c};">${tareasSemana.length}</span></div>
+          ${tareasSemana.length?tareasSemana.map(t=>renderSemanalTareaRow(t,pal,t.__viaSub)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
           <textarea class="input-field" placeholder="Notas de la semana..." style="margin-top:10px;font-size:12px;min-height:60px;" onblur="saveSemanaNota('${wk}',this.value)">${state.semanaNotas?.[wk]?.texto||''}</textarea>
         </div>`;
       }).join('')}
@@ -1768,12 +1807,14 @@ function getItemsDelDia(key){
   return items;
 }
 
-function contarItemsPorDia(){
+// Para cada día: nombres a mostrar (la tarea madre si el item es una subtarea, la propia tarea si es pequeña/sin dividir)
+function getNombresPorDia(){
   const map={};
+  const push=(key,name)=>{ if(!key) return; if(!map[key]) map[key]=[]; if(!map[key].includes(name)) map[key].push(name); };
   Object.values(state.mensualTareas||{}).forEach(t=>{
     const tieneSubtareas = t.subtareas && Object.keys(t.subtareas).length>0;
-    if(!tieneSubtareas && t.dia) map[t.dia]=(map[t.dia]||0)+1;
-    if(tieneSubtareas) Object.values(t.subtareas).forEach(s=>{ if(s.dia) map[s.dia]=(map[s.dia]||0)+1; });
+    if(!tieneSubtareas && t.dia) push(t.dia, t.name);
+    if(tieneSubtareas) Object.values(t.subtareas).forEach(s=>{ if(s.dia) push(s.dia, t.name); });
   });
   return map;
 }
@@ -1783,23 +1824,27 @@ function renderDiarioMiniCalHTML(){
   const monthName=diarioCalMonth.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
   const firstDay=(new Date(y,m,1).getDay()+6)%7;
   const days=new Date(y,m+1,0).getDate();
-  const conteo=contarItemsPorDia();
+  const nombresPorDia=getNombresPorDia();
   const today=todayKey();
-  let grid=['L','M','X','J','V','S','D'].map(d=>`<div class="mini-cal-day-label">${d}</div>`).join('');
-  for(let i=0;i<firstDay;i++) grid+=`<div class="mini-cal-day empty"></div>`;
+  let grid=['L','M','X','J','V','S','D'].map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) grid+=`<div class="cal-day empty"></div>`;
   for(let d=1;d<=days;d++){
     const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday=key===today, isSel=key===diaVistaSelected;
-    const has=(conteo[key]||0)>0;
-    grid+=`<div class="mini-cal-day ${isToday?'today':''} ${isSel&&!isToday?'selected':''} ${has?'has-events':''}" onclick="selectDiaVista('${key}')">${d}</div>`;
+    const nombres=nombresPorDia[key]||[];
+    grid+=`<div class="cal-day ${isToday?'today':''} ${isSel&&!isToday?'selected':''}" onclick="selectDiaVista('${key}')">
+      <div class="cal-day-num">${d}</div>
+      ${nombres.slice(0,2).map(n=>`<div style="font-size:9px;font-weight:600;color:${isToday?'rgba(255,255,255,0.9)':'var(--lav-dark)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.3;margin-top:1px;">${n}</div>`).join('')}
+      ${nombres.length>2?`<div style="font-size:9px;font-weight:700;color:${isToday?'rgba(255,255,255,0.7)':'var(--text-muted)'};">+${nombres.length-2} más</div>`:''}
+    </div>`;
   }
-  return `<div class="mini-cal" style="max-width:320px;margin:0 auto 16px;">
-    <div class="mini-cal-header">
+  return `<div class="card" style="padding:14px 12px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <button class="mini-cal-nav" onclick="diarioCalNav(-1)">‹</button>
       <div class="mini-cal-title">${monthName.charAt(0).toUpperCase()+monthName.slice(1)}</div>
       <button class="mini-cal-nav" onclick="diarioCalNav(1)">›</button>
     </div>
-    <div class="mini-cal-grid">${grid}</div>
+    <div class="cal-grid" style="margin-bottom:0;">${grid}</div>
   </div>`;
 }
 
@@ -1869,6 +1914,141 @@ function saveSubtareaSheet(){
 function openDiarioNuevaTarea(){
   const monday=localKey(mondayOf(new Date(diaVistaSelected+'T12:00:00')));
   openMensualTareaSheet(null, monday, diaVistaSelected);
+}
+
+// ── PERSONAL · CASA (calendario mensual de tareas del hogar, tipo bullet journal) ──
+const CASA_FREQ_COLOR={diario:'var(--red)',semanal:'var(--green)',quincenal:'var(--peach)',necesidad:'var(--gray)'};
+const CASA_FREQ_LABEL={diario:'Diario',semanal:'Cada semana',quincenal:'Cada 2 semanas',necesidad:'Según necesidad'};
+const CASA_DIAS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
+function getCasaTareasOrdenadas(){
+  return Object.values(state.casaTareas||{}).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+}
+
+// ¿Toca esta tarea el día "dateObj" según su frecuencia y las semanas del mes que tenga activas?
+function casaEsDiaProgramado(t, dateObj){
+  if(t.frecuencia==='diario') return true;
+  if(t.frecuencia==='necesidad') return false;
+  const wd=(dateObj.getDay()+6)%7; // 0=lunes
+  if(wd!==(t.diaSemana??0)) return false;
+  const semanaNum=Math.ceil(dateObj.getDate()/7); // semana 1-5 del mes, aproximada por bloques de 7 días
+  return t.semanasActivas ? (t.semanasActivas[semanaNum]!==false) : true;
+}
+
+function casaNav(dir){
+  casaBaseDate.setMonth(casaBaseDate.getMonth()+dir);
+  casaBaseDate=new Date(casaBaseDate);
+  renderCasa();
+}
+
+// Marcar/desmarcar que una tarea se hizo un día concreto (independiente de si "tocaba" o no ese día)
+function toggleCasaDia(choreId, key){
+  const hecho=!!(state.casaHecho?.[choreId]?.[key]);
+  DB.update(`refugio2/casaHecho/${choreId}`,{[key]:!hecho});
+}
+
+function renderCasa(){
+  const area=document.getElementById('casa-area'); if(!area) return;
+  const y=casaBaseDate.getFullYear(), m=casaBaseDate.getMonth();
+  const monthTxt=casaBaseDate.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const days=new Date(y,m+1,0).getDate();
+  const tareas=getCasaTareasOrdenadas();
+
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <button class="cal-nav-btn" onclick="casaNav(-1)">‹</button>
+    <div class="cal-nav-title">${monthTxt.charAt(0).toUpperCase()+monthTxt.slice(1)}</div>
+    <button class="cal-nav-btn" onclick="casaNav(1)">›</button>
+  </div>
+  <div class="casa-legend">
+    ${Object.keys(CASA_FREQ_LABEL).map(k=>`<div class="casa-legend-item"><span class="casa-legend-dot" style="background:${CASA_FREQ_COLOR[k]};"></span>${CASA_FREQ_LABEL[k]}</div>`).join('')}
+  </div>`;
+
+  if(!tareas.length){
+    html+=`<div class="empty-state"><div class="empty-icon">🏡</div><p>Sin tareas de casa todavía.<br>Pulsa "+ Tarea" para añadir la primera.</p></div>`;
+    area.innerHTML=html;
+    return;
+  }
+
+  html+=`<div class="casa-table-wrap"><table class="casa-table"><thead><tr>
+    <th class="casa-th-name">Tarea</th>
+    ${Array.from({length:days},(_,i)=>`<th>${i+1}</th>`).join('')}
+  </tr></thead><tbody>
+    ${tareas.map(t=>{
+      const color=CASA_FREQ_COLOR[t.frecuencia]||'var(--lav)';
+      return `<tr>
+        <td class="casa-th-name" onclick="openCasaTareaSheet('${t.id}')"><span class="casa-legend-dot" style="background:${color};display:inline-block;margin-right:6px;vertical-align:middle;"></span>${t.nombre}</td>
+        ${Array.from({length:days},(_,i)=>{
+          const d=i+1;
+          const dateObj=new Date(y,m,d);
+          const key=localKey(dateObj);
+          const programado=casaEsDiaProgramado(t,dateObj);
+          const hecho=!!(state.casaHecho?.[t.id]?.[key]);
+          return `<td><div class="casa-dot ${programado?'scheduled':''} ${hecho?'done':''}" style="--dot-color:${color};" onclick="toggleCasaDia('${t.id}','${key}')"></div></td>`;
+        }).join('')}
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>
+  <div style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center;">Toca cualquier círculo para marcar el día que la haces (aunque no fuera el día programado). Toca el nombre para editarla.</div>`;
+
+  area.innerHTML=html;
+}
+
+function renderCasaSemanasChips(){
+  const c=document.getElementById('casa-semanas-chips'); if(!c) return;
+  const frec=document.getElementById('casa-tarea-frecuencia')?.value;
+  const color=CASA_FREQ_COLOR[frec]||'var(--lav)';
+  c.innerHTML=[1,2,3,4,5].map(n=>`<button type="button" class="week-toggle-chip ${editingSemanasActivas[n]!==false?'active':''}" style="--dot-color:${color};" onclick="toggleCasaSemanaActiva(${n})">S${n}</button>`).join('');
+}
+function toggleCasaSemanaActiva(n){
+  editingSemanasActivas[n]=editingSemanasActivas[n]===false ? true : false;
+  renderCasaSemanasChips();
+}
+function toggleCasaFrecuenciaCampos(){
+  const frec=document.getElementById('casa-tarea-frecuencia').value;
+  const necesitaDia = frec==='semanal'||frec==='quincenal';
+  const diaGroup=document.getElementById('casa-tarea-dia-group');
+  const semanasGroup=document.getElementById('casa-tarea-semanas-group');
+  if(diaGroup) diaGroup.style.display = necesitaDia?'block':'none';
+  if(semanasGroup) semanasGroup.style.display = necesitaDia?'block':'none';
+  renderCasaSemanasChips();
+}
+
+function openCasaTareaSheet(id){
+  const t=id?state.casaTareas[id]:null;
+  const isNew=!t;
+  document.getElementById('casa-tarea-id').value=t?.id||'';
+  document.getElementById('casa-tarea-nombre').value=t?.nombre||'';
+  document.getElementById('casa-tarea-frecuencia').value=t?.frecuencia||'semanal';
+  document.getElementById('casa-tarea-dia').value=t?.diaSemana??0;
+  editingSemanasActivas = t?.semanasActivas ? {...t.semanasActivas} : (t?.frecuencia==='quincenal' || (isNew && document.getElementById('casa-tarea-frecuencia').value==='quincenal')
+    ? {1:true,2:false,3:true,4:false,5:true} : {1:true,2:true,3:true,4:true,5:true});
+  toggleCasaFrecuenciaCampos();
+  document.getElementById('casa-tarea-sheet-title').textContent=isNew?'Nueva tarea de casa':'Editar tarea de casa';
+  document.getElementById('casa-tarea-delete-btn').style.display=isNew?'none':'block';
+  document.getElementById('casa-tarea-sheet').classList.add('open');
+}
+function closeCasaTareaSheet(){document.getElementById('casa-tarea-sheet').classList.remove('open');}
+function saveCasaTarea(){
+  const nombre=document.getElementById('casa-tarea-nombre').value.trim();
+  if(!nombre){showToast('Escribe el nombre');return;}
+  const id=document.getElementById('casa-tarea-id').value||Date.now().toString();
+  const data={
+    id, nombre,
+    frecuencia:document.getElementById('casa-tarea-frecuencia').value,
+    diaSemana:parseInt(document.getElementById('casa-tarea-dia').value)||0,
+    semanasActivas:{...editingSemanasActivas},
+    createdAt:state.casaTareas[id]?.createdAt||Date.now()
+  };
+  DB.set(`refugio2/casaTareas/${id}`,data).then(()=>{closeCasaTareaSheet();showToast('Guardado ✓');});
+}
+function deleteCasaTarea(){
+  const id=document.getElementById('casa-tarea-id').value;
+  if(!id||!confirm('¿Eliminar esta tarea de casa?'))return;
+  DB.remove(`refugio2/casaTareas/${id}`).then(()=>{
+    DB.remove(`refugio2/casaHecho/${id}`);
+    closeCasaTareaSheet();
+    showToast('Eliminada');
+  });
 }
 
 // ── FORMACIONES MSM ──
