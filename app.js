@@ -3,7 +3,7 @@
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
 const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio'},{id:'listas',ico:'✅',lbl:'Listas'},{id:'porhacer',ico:'✍️',lbl:'Por hacer'},{id:'notas',ico:'📝',lbl:'Notas'}];
-const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen'},{id:'tareas',ico:'✅',lbl:'Tareas'},{id:'agenda',ico:'📅',lbl:'Agenda'},{id:'mensual',ico:'🗓️',lbl:'Mensual'},{id:'semanal',ico:'📆',lbl:'Semanal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease'},{id:'formaciones',ico:'🎓',lbl:'MSM'}];
+const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen'},{id:'tareas',ico:'✅',lbl:'Tareas'},{id:'agenda',ico:'📅',lbl:'Agenda'},{id:'mensual',ico:'🗓️',lbl:'Mensual'},{id:'semanal',ico:'📆',lbl:'Semanal'},{id:'diario',ico:'🕐',lbl:'Diario'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease'},{id:'formaciones',ico:'🎓',lbl:'MSM'}];
 
 let state={
   mode:localStorage.getItem('mode')||'day', tab:'inicio',
@@ -20,7 +20,9 @@ let tareaFilter='todas';
 let wlTab='in';
 let editingWLDeps=[], editingWLDocs=[];
 let mensualMonthsCount=1, mensualBaseDate=new Date();
-let semanalWeeksCount=1, semanalBaseDate=new Date();
+let semanalMonthsCount=1, semanalBaseDate=new Date();
+let diaVistaSelected=todayKey(), diarioCalMonth=new Date();
+let editingSubtareas=[];
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded',()=>{
@@ -178,7 +180,7 @@ function initListeners(){
   DB.listen('refugio2/wlOut',d=>{state.wlOut=d||{};if(state.tab==='wetlease')renderWL();});
   DB.listen('refugio2/wlInTemplate',d=>{state.wlInTemplate=d||{departamentos:{}, docs:{}};});
   DB.listen('refugio2/formaciones',d=>{state.formaciones=d||{};renderFormaciones();renderMiniCal();});
-  DB.listen('refugio2/mensualTareas',d=>{state.mensualTareas=d||{};if(state.tab==='mensual')renderMensual();if(state.tab==='semanal')renderSemanal();});
+  DB.listen('refugio2/mensualTareas',d=>{state.mensualTareas=d||{};if(state.tab==='mensual')renderMensual();if(state.tab==='semanal')renderSemanal();if(state.tab==='diario')renderDiario();});
   DB.listen('refugio2/semanaNotas',d=>{state.semanaNotas=d||{};if(state.tab==='semanal')renderSemanal();});
 }
 
@@ -213,6 +215,7 @@ function navigateTo(tab){
   if(tab==='formaciones') renderFormaciones();
   if(tab==='mensual') renderMensual();
   if(tab==='semanal') renderSemanal();
+  if(tab==='diario') renderDiario();
   const fab=document.getElementById('fab');
   if(fab) fab.style.display = tab==='ajustes' ? 'none' : 'flex';
 }
@@ -1556,7 +1559,34 @@ function populateMensualDiaSelect(){
   diaSel.innerHTML=opts.join('');
 }
 
-function openMensualTareaSheet(id, presetSemana){
+function toggleMensualSubtareas(){
+  const tamano=document.getElementById('mensual-tarea-tamano').value;
+  const subCont=document.getElementById('mensual-tarea-subtareas-container');
+  const horaGroup=document.getElementById('mensual-tarea-hora-group');
+  if(subCont) subCont.style.display = tamano==='grande' ? 'block' : 'none';
+  if(horaGroup) horaGroup.style.display = tamano==='grande' ? 'none' : 'flex';
+}
+function renderMensualSubtareasList(){
+  const c=document.getElementById('mensual-subtareas-list'); if(!c) return;
+  c.innerHTML=editingSubtareas.map((s,i)=>`
+    <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="input-field" value="${s.text||''}" placeholder="Subtarea..." oninput="editingSubtareas[${i}].text=this.value" style="flex:1;">
+        <button class="remove-btn" onclick="editingSubtareas.splice(${i},1);renderMensualSubtareasList()">×</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <input class="input-field" type="date" value="${s.dia||''}" oninput="editingSubtareas[${i}].dia=this.value" style="flex:1;font-size:12px;">
+        <input class="input-field" type="time" value="${s.horaInicio||''}" oninput="editingSubtareas[${i}].horaInicio=this.value" style="flex:1;font-size:12px;">
+        <input class="input-field" type="time" value="${s.horaFin||''}" oninput="editingSubtareas[${i}].horaFin=this.value" style="flex:1;font-size:12px;">
+      </div>
+    </div>`).join('');
+}
+function addMensualSubtarea(){
+  editingSubtareas.push({id:'sub'+Date.now()+Math.random().toString(36).slice(2,6), text:'', dia:'', horaInicio:'', horaFin:'', done:false});
+  renderMensualSubtareasList();
+}
+
+function openMensualTareaSheet(id, presetSemana, presetDia){
   const t=id?state.mensualTareas[id]:null;
   const isNew=!t;
   document.getElementById('mensual-tarea-id').value=t?.id||'';
@@ -1566,8 +1596,14 @@ function openMensualTareaSheet(id, presetSemana){
   populateMensualSemanaSelect();
   document.getElementById('mensual-tarea-semana').value = t?.semana || (isNew && presetSemana ? presetSemana : '');
   populateMensualDiaSelect();
-  document.getElementById('mensual-tarea-dia').value=t?.dia||'';
+  document.getElementById('mensual-tarea-dia').value = t?.dia || (isNew && presetDia ? presetDia : '');
   document.getElementById('mensual-tarea-prioridad').checked=!!t?.prioridad;
+  document.getElementById('mensual-tarea-tamano').value=t?.tamano||'pequena';
+  document.getElementById('mensual-tarea-hora-inicio').value=t?.horaInicio||'';
+  document.getElementById('mensual-tarea-hora-fin').value=t?.horaFin||'';
+  editingSubtareas = t?.subtareas ? Object.values(t.subtareas).map(s=>({...s})) : [];
+  renderMensualSubtareasList();
+  toggleMensualSubtareas();
   document.getElementById('mensual-tarea-sheet-title').textContent=isNew?'Nueva tarea':'Editar tarea';
   document.getElementById('mensual-tarea-delete-btn').style.display=isNew?'none':'block';
   document.getElementById('mensual-tarea-sheet').classList.add('open');
@@ -1585,9 +1621,21 @@ function saveMensualTarea(){
     const [y,m,d]=semana.split('-').map(Number);
     mes=monthKey(new Date(y,m-1,d));
   }
+  const tamano=document.getElementById('mensual-tarea-tamano').value||'pequena';
+  const subtareasArr=editingSubtareas.filter(s=>s.text.trim());
+  const subtareas = (tamano==='grande' && subtareasArr.length)
+    ? Object.fromEntries(subtareasArr.map(s=>[s.id,{
+        id:s.id, text:s.text.trim(), dia:s.dia||'', horaInicio:s.horaInicio||'', horaFin:s.horaFin||'',
+        done:state.mensualTareas[id]?.subtareas?.[s.id]?.done||false
+      }]))
+    : null;
   const data={
     id, name, mes, semana, dia,
     prioridad:document.getElementById('mensual-tarea-prioridad').checked,
+    tamano,
+    horaInicio: tamano==='grande' ? '' : (document.getElementById('mensual-tarea-hora-inicio').value||''),
+    horaFin: tamano==='grande' ? '' : (document.getElementById('mensual-tarea-hora-fin').value||''),
+    subtareas,
     done:state.mensualTareas[id]?.done||false,
     createdAt:state.mensualTareas[id]?.createdAt||Date.now()
   };
@@ -1599,22 +1647,21 @@ function deleteMensualTarea(){
   DB.remove(`refugio2/mensualTareas/${id}`).then(()=>{closeMensualTareaSheet();showToast('Eliminada');});
 }
 
-// ── TRABAJO · SEMANAL ──
-function setSemanalCount(n){ semanalWeeksCount=n; renderSemanal(); }
-function setSemanalCountMes(){
-  const mon0=mondayOf(semanalBaseDate);
-  const refDay=new Date(mon0); refDay.setDate(refDay.getDate()+3); // jueves de esa semana → mes de referencia sin ambigüedad
-  const y=refDay.getFullYear(), m=refDay.getMonth();
-  const lastOfMonth=new Date(y,m+1,0);
-  const startMonday=mondayOf(new Date(y,m,1));
-  let n=0; const cursor=new Date(startMonday);
-  while(cursor<=lastOfMonth){ n++; cursor.setDate(cursor.getDate()+7); }
-  semanalBaseDate=startMonday;
-  semanalWeeksCount=n;
-  renderSemanal();
+// ── TRABAJO · SEMANAL (agrupada por mes) ──
+// Devuelve las claves (lunes) de todas las semanas que tocan el mes mk ('YYYY-MM')
+function weeksOfMonth(mk){
+  const [y,m]=mk.split('-').map(Number);
+  const first=new Date(y,m-1,1);
+  const last=new Date(y,m,0);
+  const startMonday=mondayOf(first);
+  const weeks=[]; const cursor=new Date(startMonday);
+  while(cursor<=last){ weeks.push(localKey(cursor)); cursor.setDate(cursor.getDate()+7); }
+  return weeks;
 }
+
+function setSemanalCount(n){ semanalMonthsCount=n; renderSemanal(); }
 function semanalNav(dir){
-  semanalBaseDate.setDate(semanalBaseDate.getDate()+dir*7);
+  semanalBaseDate.setMonth(semanalBaseDate.getMonth()+dir);
   semanalBaseDate=new Date(semanalBaseDate);
   renderSemanal();
 }
@@ -1631,11 +1678,12 @@ function renderSemanalTareaRow(t){
 
 function renderSemanal(){
   const area=document.getElementById('semanal-area'); if(!area) return;
-  const monday0=mondayOf(semanalBaseDate);
-  const weeks=Array.from({length:semanalWeeksCount},(_,i)=>{const d=new Date(monday0); d.setDate(d.getDate()+i*7); return localKey(d);});
+  const meses=Array.from({length:semanalMonthsCount},(_,i)=>{
+    const d=new Date(semanalBaseDate.getFullYear(), semanalBaseDate.getMonth()+i, 1);
+    return monthKey(d);
+  });
   const allTareas=Object.values(state.mensualTareas||{});
-  const sinSemana=allTareas.filter(t=>t.mes && !t.semana).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-  const rangeLabel = weeks.length>1 ? `${weekLabel(weeks[0]).split(' – ')[0]} – ${weekLabel(weeks[weeks.length-1]).split(' – ')[1]}` : weekLabel(weeks[0]);
+  const rangeLabel = meses.length>1 ? `${monthLabel(meses[0])} – ${monthLabel(meses[meses.length-1])}` : monthLabel(meses[0]);
 
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
     <button class="cal-nav-btn" onclick="semanalNav(-1)">‹</button>
@@ -1643,26 +1691,32 @@ function renderSemanal(){
     <button class="cal-nav-btn" onclick="semanalNav(1)">›</button>
   </div>
   <div class="cal-view-toggle">
-    ${[1,2,3,4,5].map(n=>`<button class="cal-view-btn ${semanalWeeksCount===n?'active':''}" onclick="setSemanalCount(${n})">${n}</button>`).join('')}
-    <button class="cal-view-btn" onclick="setSemanalCountMes()">Mes</button>
-  </div>
-  <div class="multi-col-board" style="--cols:${semanalWeeksCount};">
-    ${weeks.map(wk=>{
-      const tareasSemana=allTareas.filter(t=>t.semana===wk).sort((a,b)=>{
-        if(!!a.prioridad!==!!b.prioridad) return a.prioridad?-1:1;
-        if((a.dia||'')!==(b.dia||'')) return (a.dia||'zzzz').localeCompare(b.dia||'zzzz');
-        return (a.createdAt||0)-(b.createdAt||0);
-      });
-      return `<div class="kanban-col">
-        <div class="kanban-col-title"><span>${weekLabel(wk)}</span><span class="kanban-col-count">${tareasSemana.length}</span></div>
-        ${tareasSemana.length?tareasSemana.map(t=>renderSemanalTareaRow(t)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
-        <textarea class="input-field" placeholder="Notas de la semana..." style="margin-top:10px;font-size:12px;min-height:60px;" onblur="saveSemanaNota('${wk}',this.value)">${state.semanaNotas?.[wk]?.texto||''}</textarea>
-      </div>`;
-    }).join('')}
-  </div>
-  <div class="section-label" style="margin-top:24px;">📥 Tareas del mes sin semana asignada</div>
-  ${sinSemana.length?`<div class="card">${sinSemana.map(t=>renderMensualTareaRow(t)).join('')}</div>`
-    : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de asignar a semana.</p></div>`}`;
+    ${[1,2,3].map(n=>`<button class="cal-view-btn ${semanalMonthsCount===n?'active':''}" onclick="setSemanalCount(${n})">${n} mes${n>1?'es':''}</button>`).join('')}
+  </div>`;
+
+  meses.forEach(mk=>{
+    const weeks=weeksOfMonth(mk);
+    html+=`<div class="section-label" style="margin-top:20px;">${monthLabel(mk)}</div>
+    <div class="multi-col-board" style="--cols:${weeks.length};">
+      ${weeks.map(wk=>{
+        const tareasSemana=allTareas.filter(t=>t.semana===wk).sort((a,b)=>{
+          if(!!a.prioridad!==!!b.prioridad) return a.prioridad?-1:1;
+          if((a.dia||'')!==(b.dia||'')) return (a.dia||'zzzz').localeCompare(b.dia||'zzzz');
+          return (a.createdAt||0)-(b.createdAt||0);
+        });
+        return `<div class="kanban-col">
+          <div class="kanban-col-title"><span>${weekLabel(wk)}</span><span class="kanban-col-count">${tareasSemana.length}</span></div>
+          ${tareasSemana.length?tareasSemana.map(t=>renderSemanalTareaRow(t)).join(''):'<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Sin tareas</div>'}
+          <textarea class="input-field" placeholder="Notas de la semana..." style="margin-top:10px;font-size:12px;min-height:60px;" onblur="saveSemanaNota('${wk}',this.value)">${state.semanaNotas?.[wk]?.texto||''}</textarea>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+    const sinSemanaMes=allTareas.filter(t=>t.mes===mk && !t.semana).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    html+=`<div class="section-label" style="margin-top:14px;">📥 Sin semana asignada (${monthLabel(mk)})</div>
+    ${sinSemanaMes.length?`<div class="card">${sinSemanaMes.map(t=>renderMensualTareaRow(t)).join('')}</div>`
+      : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de asignar a semana.</p></div>`}`;
+  });
 
   area.innerHTML=html;
 }
@@ -1672,8 +1726,149 @@ function saveSemanaNota(weekKey, texto){
 }
 
 function openSemanalNuevaTarea(){
-  const monday0=mondayOf(semanalBaseDate);
-  openMensualTareaSheet(null, localKey(monday0));
+  const mk=monthKey(semanalBaseDate);
+  const weeks=weeksOfMonth(mk);
+  openMensualTareaSheet(null, weeks[0]);
+}
+
+// ── TRABAJO · DIARIO ──
+function diaNav(dir){
+  const d=new Date(diaVistaSelected+'T12:00:00');
+  d.setDate(d.getDate()+dir);
+  diaVistaSelected=localKey(d);
+  diarioCalMonth=new Date(d.getFullYear(), d.getMonth(), 1);
+  renderDiario();
+}
+function selectDiaVista(key){
+  diaVistaSelected=key;
+  renderDiario();
+}
+function diarioCalNav(dir){
+  diarioCalMonth.setMonth(diarioCalMonth.getMonth()+dir);
+  diarioCalMonth=new Date(diarioCalMonth);
+  renderDiario();
+}
+
+// Todo lo que hay puesto para un día: tareas pequeñas/sin dividir con ese día, y subtareas de tareas grandes con ese día
+function getItemsDelDia(key){
+  const items=[];
+  Object.values(state.mensualTareas||{}).forEach(t=>{
+    const tieneSubtareas = t.subtareas && Object.keys(t.subtareas).length>0;
+    if(!tieneSubtareas && t.dia===key){
+      items.push({tipo:'tarea', id:t.id, subId:null, text:t.name, done:!!t.done, horaInicio:t.horaInicio||'', horaFin:t.horaFin||'', parentName:''});
+    }
+    if(tieneSubtareas){
+      Object.values(t.subtareas).forEach(s=>{
+        if(s.dia===key){
+          items.push({tipo:'subtarea', id:t.id, subId:s.id, text:s.text, done:!!s.done, horaInicio:s.horaInicio||'', horaFin:s.horaFin||'', parentName:t.name});
+        }
+      });
+    }
+  });
+  return items;
+}
+
+function contarItemsPorDia(){
+  const map={};
+  Object.values(state.mensualTareas||{}).forEach(t=>{
+    const tieneSubtareas = t.subtareas && Object.keys(t.subtareas).length>0;
+    if(!tieneSubtareas && t.dia) map[t.dia]=(map[t.dia]||0)+1;
+    if(tieneSubtareas) Object.values(t.subtareas).forEach(s=>{ if(s.dia) map[s.dia]=(map[s.dia]||0)+1; });
+  });
+  return map;
+}
+
+function renderDiarioMiniCalHTML(){
+  const y=diarioCalMonth.getFullYear(), m=diarioCalMonth.getMonth();
+  const monthName=diarioCalMonth.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const firstDay=(new Date(y,m,1).getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  const conteo=contarItemsPorDia();
+  const today=todayKey();
+  let grid=['L','M','X','J','V','S','D'].map(d=>`<div class="mini-cal-day-label">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) grid+=`<div class="mini-cal-day empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=key===today, isSel=key===diaVistaSelected;
+    const has=(conteo[key]||0)>0;
+    grid+=`<div class="mini-cal-day ${isToday?'today':''} ${isSel&&!isToday?'selected':''} ${has?'has-events':''}" onclick="selectDiaVista('${key}')">${d}</div>`;
+  }
+  return `<div class="mini-cal" style="max-width:320px;margin:0 auto 16px;">
+    <div class="mini-cal-header">
+      <button class="mini-cal-nav" onclick="diarioCalNav(-1)">‹</button>
+      <div class="mini-cal-title">${monthName.charAt(0).toUpperCase()+monthName.slice(1)}</div>
+      <button class="mini-cal-nav" onclick="diarioCalNav(1)">›</button>
+    </div>
+    <div class="mini-cal-grid">${grid}</div>
+  </div>`;
+}
+
+function renderDiarioItemRow(item, showHora){
+  const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const onToggle = item.tipo==='subtarea' ? `toggleSubtareaDone('${item.id}','${item.subId}')` : `toggleMensualTarea('${item.id}')`;
+  const onOpen = `openDiarioItemSheet('${item.id}', ${item.subId?`'${item.subId}'`:'null'})`;
+  return `<div class="check-item" onclick="${onOpen}">
+    <div class="check-box ${item.done?'checked':''}" onclick="event.stopPropagation();${onToggle}">${checkSvg}</div>
+    <span class="check-label ${item.done?'done':''}" style="flex:1;">${item.parentName?`<span style="color:var(--text-muted);">${item.parentName} › </span>`:''}${item.text}</span>
+    ${showHora && item.horaInicio ? `<span style="font-size:11px;font-weight:700;color:var(--lav);white-space:nowrap;">${item.horaInicio}${item.horaFin?'–'+item.horaFin:''}</span>`:''}
+  </div>`;
+}
+
+function renderDiario(){
+  const area=document.getElementById('diario-area'); if(!area) return;
+  const key=diaVistaSelected;
+  const fecha=new Date(key+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  const items=getItemsDelDia(key);
+  const conHora=items.filter(i=>i.horaInicio).sort((a,b)=>a.horaInicio.localeCompare(b.horaInicio));
+  const sinHora=items.filter(i=>!i.horaInicio);
+
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <button class="cal-nav-btn" onclick="diaNav(-1)">‹</button>
+    <div class="cal-nav-title">${fecha.charAt(0).toUpperCase()+fecha.slice(1)}</div>
+    <button class="cal-nav-btn" onclick="diaNav(1)">›</button>
+  </div>`;
+  html+=renderDiarioMiniCalHTML();
+  html+=`<div class="section-label">🕐 Horario del día</div>`;
+  html+= conHora.length ? `<div class="card">${conHora.map(i=>renderDiarioItemRow(i,true)).join('')}</div>` : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0 16px;">Nada con hora puesta todavía.</div>`;
+  html+=`<div class="section-label" style="margin-top:20px;">📋 Sin hora asignada</div>`;
+  html+= sinHora.length ? `<div class="card">${sinHora.map(i=>renderDiarioItemRow(i,false)).join('')}</div>` : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de programar este día.</p></div>`;
+
+  area.innerHTML=html;
+}
+
+function toggleSubtareaDone(taskId, subId){
+  const t=state.mensualTareas[taskId]; if(!t||!t.subtareas||!t.subtareas[subId]) return;
+  DB.update(`refugio2/mensualTareas/${taskId}/subtareas/${subId}`,{done:!t.subtareas[subId].done});
+}
+
+function openDiarioItemSheet(taskId, subId){
+  if(!subId){ openMensualTareaSheet(taskId); return; }
+  const t=state.mensualTareas[taskId]; const s=t?.subtareas?.[subId]; if(!s) return;
+  document.getElementById('subtarea-task-id').value=taskId;
+  document.getElementById('subtarea-id').value=subId;
+  document.getElementById('subtarea-text').value=s.text||'';
+  document.getElementById('subtarea-dia').value=s.dia||'';
+  document.getElementById('subtarea-hora-inicio').value=s.horaInicio||'';
+  document.getElementById('subtarea-hora-fin').value=s.horaFin||'';
+  document.getElementById('subtarea-sheet').classList.add('open');
+}
+function closeSubtareaSheet(){document.getElementById('subtarea-sheet').classList.remove('open');}
+function saveSubtareaSheet(){
+  const taskId=document.getElementById('subtarea-task-id').value;
+  const subId=document.getElementById('subtarea-id').value;
+  const text=document.getElementById('subtarea-text').value.trim();
+  if(!text){showToast('Escribe el texto');return;}
+  DB.update(`refugio2/mensualTareas/${taskId}/subtareas/${subId}`,{
+    text,
+    dia:document.getElementById('subtarea-dia').value||'',
+    horaInicio:document.getElementById('subtarea-hora-inicio').value||'',
+    horaFin:document.getElementById('subtarea-hora-fin').value||''
+  }).then(()=>{closeSubtareaSheet();showToast('Guardado ✓');});
+}
+
+function openDiarioNuevaTarea(){
+  const monday=localKey(mondayOf(new Date(diaVistaSelected+'T12:00:00')));
+  openMensualTareaSheet(null, monday, diaVistaSelected);
 }
 
 // ── FORMACIONES MSM ──
