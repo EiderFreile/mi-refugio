@@ -2,7 +2,7 @@
 
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
-const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'listas',ico:'✅',lbl:'Listas',col:'peach'},{id:'porhacer',ico:'✍️',lbl:'Por hacer',col:'peach'},{id:'notas',ico:'📝',lbl:'Notas',col:'blue'}];
+const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'otras',ico:'🎈',lbl:'Planes',col:'pink'},{id:'listas',ico:'✅',lbl:'Listas',col:'peach'},{id:'porhacer',ico:'✍️',lbl:'Por hacer',col:'peach'},{id:'notas',ico:'📝',lbl:'Notas',col:'blue'}];
 const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen',col:'yellow'},{id:'tareas',ico:'✅',lbl:'Tareas',col:'green'},{id:'agenda',ico:'📅',lbl:'Agenda',col:'blue'},{id:'mensual',ico:'🗓️',lbl:'Mensual',col:'lav'},{id:'semanal',ico:'📆',lbl:'Semanal',col:'pink'},{id:'diario',ico:'🕐',lbl:'Diario',col:'teal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease',col:'blue'},{id:'formaciones',ico:'🎓',lbl:'MSM',col:'peach'}];
 
 let state={
@@ -13,6 +13,7 @@ let state={
   budget:parseFloat(localStorage.getItem('budget')||'0'),
   tareas:{}, eventos:{}, tareaCats:{}, porhacer:{}, wlIn:{}, wlOut:{}, wlInTemplate:{departamentos:{}, docs:{}}, formaciones:{}, mensualTareas:{}, semanaNotas:{},
   casaTareas:{}, casaHecho:{},
+  otrasTareas:{}, otrasAnimo:{},
 };
 
 let clColor=COLORS[0].id, noteColor=COLORS[1].id, clItems=[], editingPasos=[];
@@ -26,6 +27,16 @@ let diaVistaSelected=todayKey(), diarioCalMonth=new Date();
 let editingSubtareas=[];
 let casaBaseDate=new Date();
 let editingSemanasActivas={1:true,2:true,3:true,4:true,5:true};
+let otrasCalMonth=new Date(), otrasDiaSel=todayKey();
+const MOOD_OPTIONS=[
+  {emoji:'😊',label:'Feliz',color:'var(--green)'},
+  {emoji:'😌',label:'Tranquila',color:'var(--teal)'},
+  {emoji:'😐',label:'Normal',color:'var(--gray)'},
+  {emoji:'😣',label:'Agobiada',color:'var(--peach)'},
+  {emoji:'😔',label:'Triste',color:'var(--blue)'},
+  {emoji:'😡',label:'Enfadada',color:'var(--red)'},
+  {emoji:'🥳',label:'Ilusionada',color:'var(--pink)'},
+];
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded',()=>{
@@ -187,6 +198,8 @@ function initListeners(){
   DB.listen('refugio2/semanaNotas',d=>{state.semanaNotas=d||{};if(state.tab==='semanal')renderSemanal();});
   DB.listen('refugio2/casaTareas',d=>{state.casaTareas=d||{};if(state.tab==='casa')renderCasa();});
   DB.listen('refugio2/casaHecho',d=>{state.casaHecho=d||{};if(state.tab==='casa')renderCasa();});
+  DB.listen('refugio2/otrasTareas',d=>{state.otrasTareas=d||{};if(state.tab==='otras'){renderOtras();if(document.getElementById('otras-dia-sheet')?.classList.contains('open'))renderOtrasDiaTareas();}});
+  DB.listen('refugio2/otrasAnimo',d=>{state.otrasAnimo=d||{};if(state.tab==='otras'){renderOtras();if(document.getElementById('otras-dia-sheet')?.classList.contains('open'))renderOtrasMoodChips();}});
 }
 
 // ── Mode ──
@@ -226,6 +239,7 @@ function navigateTo(tab){
   if(tab==='semanal') renderSemanal();
   if(tab==='diario') renderDiario();
   if(tab==='casa') renderCasa();
+  if(tab==='otras') renderOtras();
   const fab=document.getElementById('fab');
   if(fab) fab.style.display = tab==='ajustes' ? 'none' : 'flex';
 }
@@ -1838,7 +1852,7 @@ function renderDiarioMiniCalHTML(){
       ${nombres.length>2?`<div style="font-size:9px;font-weight:700;color:${isToday?'rgba(255,255,255,0.7)':'var(--text-muted)'};">+${nombres.length-2} más</div>`:''}
     </div>`;
   }
-  return `<div class="card" style="padding:14px 12px;margin-bottom:16px;">
+  return `<div class="card" style="padding:14px 12px;margin-bottom:16px;background:linear-gradient(160deg,var(--lav-light),var(--pink-light) 60%,var(--peach-light));border:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <button class="mini-cal-nav" onclick="diarioCalNav(-1)">‹</button>
       <div class="mini-cal-title">${monthName.charAt(0).toUpperCase()+monthName.slice(1)}</div>
@@ -1871,12 +1885,18 @@ function renderDiario(){
     <button class="cal-nav-btn" onclick="diaNav(-1)">‹</button>
     <div class="cal-nav-title">${fecha.charAt(0).toUpperCase()+fecha.slice(1)}</div>
     <button class="cal-nav-btn" onclick="diaNav(1)">›</button>
+  </div>
+  <div id="diario-layout" style="display:flex;gap:24px;align-items:flex-start;">
+    <div id="diario-cal-col" style="width:100%;flex-shrink:0;">
+      ${renderDiarioMiniCalHTML()}
+    </div>
+    <div id="diario-list-col" style="flex:1;min-width:0;width:100%;">
+      <div class="section-label" style="margin-top:0;">🕐 Horario del día</div>
+      ${conHora.length ? `<div class="card">${conHora.map(i=>renderDiarioItemRow(i,true)).join('')}</div>` : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0 16px;">Nada con hora puesta todavía.</div>`}
+      <div class="section-label" style="margin-top:20px;">📋 Sin hora asignada</div>
+      ${sinHora.length ? `<div class="card">${sinHora.map(i=>renderDiarioItemRow(i,false)).join('')}</div>` : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de programar este día.</p></div>`}
+    </div>
   </div>`;
-  html+=renderDiarioMiniCalHTML();
-  html+=`<div class="section-label">🕐 Horario del día</div>`;
-  html+= conHora.length ? `<div class="card">${conHora.map(i=>renderDiarioItemRow(i,true)).join('')}</div>` : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0 16px;">Nada con hora puesta todavía.</div>`;
-  html+=`<div class="section-label" style="margin-top:20px;">📋 Sin hora asignada</div>`;
-  html+= sinHora.length ? `<div class="card">${sinHora.map(i=>renderDiarioItemRow(i,false)).join('')}</div>` : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de programar este día.</p></div>`;
 
   area.innerHTML=html;
 }
@@ -1918,19 +1938,18 @@ function openDiarioNuevaTarea(){
 
 // ── PERSONAL · CASA (calendario mensual de tareas del hogar, tipo bullet journal) ──
 const CASA_FREQ_COLOR={diario:'var(--red)',semanal:'var(--green)',quincenal:'var(--peach)',necesidad:'var(--gray)'};
+const CASA_FREQ_COLOR_LIGHT={diario:'var(--red-light)',semanal:'var(--green-light)',quincenal:'var(--peach-light)',necesidad:'var(--gray-light)'};
 const CASA_FREQ_LABEL={diario:'Diario',semanal:'Cada semana',quincenal:'Cada 2 semanas',necesidad:'Según necesidad'};
-const CASA_DIAS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 
 function getCasaTareasOrdenadas(){
   return Object.values(state.casaTareas||{}).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
 }
 
-// ¿Toca esta tarea el día "dateObj" según su frecuencia y las semanas del mes que tenga activas?
+// ¿Toca esta tarea la semana en la que cae "dateObj"? No importa el día concreto de la semana,
+// solo si esa semana del mes está marcada como activa (o si es diario/según-necesidad).
 function casaEsDiaProgramado(t, dateObj){
   if(t.frecuencia==='diario') return true;
   if(t.frecuencia==='necesidad') return false;
-  const wd=(dateObj.getDay()+6)%7; // 0=lunes
-  if(wd!==(t.diaSemana??0)) return false;
   const semanaNum=Math.ceil(dateObj.getDate()/7); // semana 1-5 del mes, aproximada por bloques de 7 días
   return t.semanasActivas ? (t.semanasActivas[semanaNum]!==false) : true;
 }
@@ -1975,6 +1994,7 @@ function renderCasa(){
   </tr></thead><tbody>
     ${tareas.map(t=>{
       const color=CASA_FREQ_COLOR[t.frecuencia]||'var(--lav)';
+      const colorLight=CASA_FREQ_COLOR_LIGHT[t.frecuencia]||'var(--lav-light)';
       return `<tr>
         <td class="casa-th-name" onclick="openCasaTareaSheet('${t.id}')"><span class="casa-legend-dot" style="background:${color};display:inline-block;margin-right:6px;vertical-align:middle;"></span>${t.nombre}</td>
         ${Array.from({length:days},(_,i)=>{
@@ -1983,12 +2003,12 @@ function renderCasa(){
           const key=localKey(dateObj);
           const programado=casaEsDiaProgramado(t,dateObj);
           const hecho=!!(state.casaHecho?.[t.id]?.[key]);
-          return `<td><div class="casa-dot ${programado?'scheduled':''} ${hecho?'done':''}" style="--dot-color:${color};" onclick="toggleCasaDia('${t.id}','${key}')"></div></td>`;
+          return `<td style="${programado?`background:${colorLight};`:''}"><div class="casa-dot ${programado?'scheduled':''} ${hecho?'done':''}" style="--dot-color:${color};" onclick="toggleCasaDia('${t.id}','${key}')"></div></td>`;
         }).join('')}
       </tr>`;
     }).join('')}
   </tbody></table></div>
-  <div style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center;">Toca cualquier círculo para marcar el día que la haces (aunque no fuera el día programado). Toca el nombre para editarla.</div>`;
+  <div style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center;">La franja de color marca las semanas que te tocan. Toca cualquier círculo para marcar el día (o días) que la haces. Toca el nombre para editarla.</div>`;
 
   area.innerHTML=html;
 }
@@ -2005,11 +2025,9 @@ function toggleCasaSemanaActiva(n){
 }
 function toggleCasaFrecuenciaCampos(){
   const frec=document.getElementById('casa-tarea-frecuencia').value;
-  const necesitaDia = frec==='semanal'||frec==='quincenal';
-  const diaGroup=document.getElementById('casa-tarea-dia-group');
+  const necesitaSemanas = frec==='semanal'||frec==='quincenal';
   const semanasGroup=document.getElementById('casa-tarea-semanas-group');
-  if(diaGroup) diaGroup.style.display = necesitaDia?'block':'none';
-  if(semanasGroup) semanasGroup.style.display = necesitaDia?'block':'none';
+  if(semanasGroup) semanasGroup.style.display = necesitaSemanas?'block':'none';
   renderCasaSemanasChips();
 }
 
@@ -2019,7 +2037,6 @@ function openCasaTareaSheet(id){
   document.getElementById('casa-tarea-id').value=t?.id||'';
   document.getElementById('casa-tarea-nombre').value=t?.nombre||'';
   document.getElementById('casa-tarea-frecuencia').value=t?.frecuencia||'semanal';
-  document.getElementById('casa-tarea-dia').value=t?.diaSemana??0;
   editingSemanasActivas = t?.semanasActivas ? {...t.semanasActivas} : (t?.frecuencia==='quincenal' || (isNew && document.getElementById('casa-tarea-frecuencia').value==='quincenal')
     ? {1:true,2:false,3:true,4:false,5:true} : {1:true,2:true,3:true,4:true,5:true});
   toggleCasaFrecuenciaCampos();
@@ -2035,7 +2052,6 @@ function saveCasaTarea(){
   const data={
     id, nombre,
     frecuencia:document.getElementById('casa-tarea-frecuencia').value,
-    diaSemana:parseInt(document.getElementById('casa-tarea-dia').value)||0,
     semanasActivas:{...editingSemanasActivas},
     createdAt:state.casaTareas[id]?.createdAt||Date.now()
   };
@@ -2049,6 +2065,115 @@ function deleteCasaTarea(){
     closeCasaTareaSheet();
     showToast('Eliminada');
   });
+}
+
+// ── PERSONAL · OTRAS TAREAS Y PLANES (calendario mensual + ánimo del día) ──
+function getOtrasTareasPorDia(key){
+  return Object.values(state.otrasTareas||{}).filter(t=>t.fecha===key)
+    .sort((a,b)=>(a.hora||'zz').localeCompare(b.hora||'zz') || (a.createdAt||0)-(b.createdAt||0));
+}
+
+function otrasCalNav(dir){
+  otrasCalMonth.setMonth(otrasCalMonth.getMonth()+dir);
+  otrasCalMonth=new Date(otrasCalMonth);
+  renderOtras();
+}
+
+function renderOtras(){
+  const area=document.getElementById('otras-area'); if(!area) return;
+  const y=otrasCalMonth.getFullYear(), m=otrasCalMonth.getMonth();
+  const monthTxt=otrasCalMonth.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const firstDay=(new Date(y,m,1).getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  const today=todayKey();
+
+  let grid=['L','M','X','J','V','S','D'].map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) grid+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=key===today;
+    const mood=state.otrasAnimo?.[key];
+    const items=getOtrasTareasPorDia(key);
+    const maxNombres = mood ? 1 : 2;
+    let cellStyle='';
+    if(mood) cellStyle+=`background:${mood.color};`;
+    if(isToday) cellStyle+=`box-shadow:inset 0 0 0 2px ${mood?'white':'var(--lav)'};`;
+    grid+=`<div class="cal-day" style="${cellStyle}" onclick="openOtrasDiaSheet('${key}')">
+      <div class="cal-day-num" style="${mood?'color:white;':''}">${d}</div>
+      ${mood?`<div style="font-size:12px;line-height:1;margin-top:1px;">${mood.emoji}</div>`:''}
+      ${items.slice(0,maxNombres).map(t=>`<div style="font-size:8px;font-weight:600;color:${mood?'rgba(255,255,255,0.95)':'var(--lav-dark)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.2;">${t.done?'✓ ':''}${t.nombre}</div>`).join('')}
+      ${items.length>maxNombres?`<div style="font-size:8px;font-weight:700;color:${mood?'rgba(255,255,255,0.75)':'var(--text-muted)'};">+${items.length-maxNombres}</div>`:''}
+    </div>`;
+  }
+
+  const html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <button class="cal-nav-btn" onclick="otrasCalNav(-1)">‹</button>
+    <div class="cal-nav-title">${monthTxt.charAt(0).toUpperCase()+monthTxt.slice(1)}</div>
+    <button class="cal-nav-btn" onclick="otrasCalNav(1)">›</button>
+  </div>
+  <div class="cal-grid">${grid}</div>
+  <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;">Toca un día para apuntar planes o marcar cómo te sientes.</div>`;
+
+  area.innerHTML=html;
+}
+
+function openOtrasDiaSheet(key){
+  otrasDiaSel=key;
+  const d=new Date(key+'T12:00:00');
+  const txt=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('otras-dia-titulo').textContent=txt.charAt(0).toUpperCase()+txt.slice(1);
+  document.getElementById('otras-tarea-nueva').value='';
+  document.getElementById('otras-tarea-hora').value='';
+  renderOtrasMoodChips();
+  renderOtrasDiaTareas();
+  document.getElementById('otras-dia-sheet').classList.add('open');
+}
+function closeOtrasDiaSheet(){document.getElementById('otras-dia-sheet').classList.remove('open');}
+
+function renderOtrasMoodChips(){
+  const c=document.getElementById('otras-mood-chips'); if(!c) return;
+  const actual=state.otrasAnimo?.[otrasDiaSel];
+  c.innerHTML=MOOD_OPTIONS.map(mo=>{
+    const isActive=actual&&actual.emoji===mo.emoji;
+    return `<button type="button" title="${mo.label}" onclick="setOtrasAnimo('${mo.emoji}','${mo.color}')" style="font-size:22px;line-height:1;padding:7px 9px;border-radius:10px;border:2px solid ${isActive?mo.color:'var(--border)'};background:${isActive?mo.color:'var(--surface)'};cursor:pointer;">${mo.emoji}</button>`;
+  }).join('');
+}
+function setOtrasAnimo(emoji,color){
+  const actual=state.otrasAnimo?.[otrasDiaSel];
+  if(actual && actual.emoji===emoji){
+    DB.remove(`refugio2/otrasAnimo/${otrasDiaSel}`).then(renderOtrasMoodChips);
+  } else {
+    DB.set(`refugio2/otrasAnimo/${otrasDiaSel}`,{emoji,color}).then(renderOtrasMoodChips);
+  }
+}
+
+function renderOtrasDiaTareas(){
+  const c=document.getElementById('otras-dia-tareas-list'); if(!c) return;
+  const items=getOtrasTareasPorDia(otrasDiaSel);
+  const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  c.innerHTML = items.length ? items.map(t=>`
+    <div class="check-item">
+      <div class="check-box ${t.done?'checked':''}" onclick="toggleOtrasTarea('${t.id}')">${checkSvg}</div>
+      <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.nombre}${t.hora?` <span style="color:var(--pink);font-weight:700;font-size:11px;">${t.hora}</span>`:''}</span>
+      <button class="remove-btn" onclick="deleteOtrasTarea('${t.id}')">×</button>
+    </div>`).join('') : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">Nada apuntado este día todavía.</div>`;
+}
+function addOtrasTarea(){
+  const input=document.getElementById('otras-tarea-nueva');
+  const nombre=input.value.trim();
+  if(!nombre){showToast('Escribe algo primero');return;}
+  const hora=document.getElementById('otras-tarea-hora').value||'';
+  const id='ot'+Date.now()+Math.random().toString(36).slice(2,6);
+  DB.set(`refugio2/otrasTareas/${id}`,{id,nombre,hora,fecha:otrasDiaSel,done:false,createdAt:Date.now()}).then(()=>{
+    input.value=''; document.getElementById('otras-tarea-hora').value=''; input.focus();
+  });
+}
+function toggleOtrasTarea(id){
+  const t=state.otrasTareas[id]; if(!t) return;
+  DB.update(`refugio2/otrasTareas/${id}`,{done:!t.done});
+}
+function deleteOtrasTarea(id){
+  DB.remove(`refugio2/otrasTareas/${id}`);
 }
 
 // ── FORMACIONES MSM ──
