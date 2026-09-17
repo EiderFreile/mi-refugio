@@ -468,6 +468,7 @@ body.dark{--bg:#111110;--surface:#1C1C1B;--border:#2A2A28;--text:#F0F0EE;--text-
   #hoy-mini-cal { width: 260px !important; flex-shrink: 0 !important; }
 
   .kanban-board { grid-template-columns: repeat(3, 1fr) !important; }
+  .multi-col-board { grid-template-columns: repeat(var(--cols, 1), 1fr) !important; }
   .order-btns { display: none !important; }
   .notes-grid { grid-template-columns: repeat(3, 1fr) !important; }
   .overlay { align-items: center !important; }
@@ -488,6 +489,14 @@ body.dark{--bg:#111110;--surface:#1C1C1B;--border:#2A2A28;--text:#F0F0EE;--text-
   grid-template-columns: 1fr;
   gap: 16px;
   align-items: flex-start;
+}
+
+/* ── Tablero genérico de columnas (Mensual, Semanal...) — nº de columnas via --cols, 1 sola en móvil ── */
+.multi-col-board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
 }
 
 .kanban-col {
