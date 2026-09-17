@@ -134,6 +134,14 @@
     </div>
   </div>
 
+  <div id="screen-mensual" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Mensual</h1>
+      <button onclick="openMensualTareaSheet(null)" style="background:var(--lav);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Tarea</button>
+    </div>
+    <div class="scroll-area"><div id="mensual-area"></div></div>
+  </div>
+
   <div id="screen-formaciones" class="screen">
     <div class="page-header" style="justify-content:flex-start;gap:16px;">
       <h1 class="page-title">Formaciones MSM</h1>
@@ -405,6 +413,20 @@
       <button class="btn-sm-lav" style="margin-top:8px;" onclick="copyFormacionMail('tcpfc')">📋 Copiar mail TCP/Flight Crew</button>
     </div>
     <button class="btn-ghost" onclick="closeFormacionMailsSheet()">Cerrar</button>
+  </div>
+</div>
+
+<!-- MENSUAL · TAREA SHEET -->
+<div class="overlay" id="mensual-tarea-sheet" onclick="closeMensualTareaSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="mensual-tarea-sheet-title">Nueva tarea</div>
+    <input type="hidden" id="mensual-tarea-id">
+    <div class="input-group"><label class="input-label">Nombre</label><input class="input-field" id="mensual-tarea-name" placeholder="¿Qué tarea es?"></div>
+    <div class="input-group"><label class="input-label">Mes</label><select class="input-field" id="mensual-tarea-mes"></select></div>
+    <button class="btn-primary" onclick="saveMensualTarea()">Guardar</button>
+    <button class="btn-ghost" onclick="closeMensualTareaSheet()">Cancelar</button>
+    <button class="btn-danger" id="mensual-tarea-delete-btn" onclick="deleteMensualTarea()" style="display:none;">Eliminar</button>
   </div>
 </div>
 
