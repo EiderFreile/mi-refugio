@@ -150,6 +150,14 @@
     <div class="scroll-area"><div id="semanal-area"></div></div>
   </div>
 
+  <div id="screen-diario" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Diario</h1>
+      <button onclick="openDiarioNuevaTarea()" style="background:var(--lav);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Tarea</button>
+    </div>
+    <div class="scroll-area"><div id="diario-area"></div></div>
+  </div>
+
   <div id="screen-formaciones" class="screen">
     <div class="page-header" style="justify-content:flex-start;gap:16px;">
       <h1 class="page-title">Formaciones MSM</h1>
@@ -437,9 +445,42 @@
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;">
       <input type="checkbox" id="mensual-tarea-prioridad"> ⭐ Prioridad de esta semana
     </label>
+    <div class="input-group"><label class="input-label">Tamaño</label>
+      <select class="input-field" id="mensual-tarea-tamano" onchange="toggleMensualSubtareas()">
+        <option value="pequena">Pequeña</option>
+        <option value="grande">Grande (con subtareas)</option>
+      </select>
+    </div>
+    <div id="mensual-tarea-hora-group" style="display:flex;gap:12px;">
+      <div class="input-group" style="flex:1;"><label class="input-label">Hora inicio</label><input class="input-field" id="mensual-tarea-hora-inicio" type="time"></div>
+      <div class="input-group" style="flex:1;"><label class="input-label">Hora fin</label><input class="input-field" id="mensual-tarea-hora-fin" type="time"></div>
+    </div>
+    <div id="mensual-tarea-subtareas-container" style="display:none;">
+      <label class="input-label">Subtareas</label>
+      <div id="mensual-subtareas-list"></div>
+      <button class="add-item-btn" onclick="addMensualSubtarea()">+ Añadir subtarea</button>
+    </div>
     <button class="btn-primary" onclick="saveMensualTarea()">Guardar</button>
     <button class="btn-ghost" onclick="closeMensualTareaSheet()">Cancelar</button>
     <button class="btn-danger" id="mensual-tarea-delete-btn" onclick="deleteMensualTarea()" style="display:none;">Eliminar</button>
+  </div>
+</div>
+
+<!-- SUBTAREA SHEET (día concreto de una tarea grande) -->
+<div class="overlay" id="subtarea-sheet" onclick="closeSubtareaSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Subtarea</div>
+    <input type="hidden" id="subtarea-task-id">
+    <input type="hidden" id="subtarea-id">
+    <div class="input-group"><label class="input-label">Texto</label><input class="input-field" id="subtarea-text"></div>
+    <div class="input-group"><label class="input-label">Día</label><input class="input-field" id="subtarea-dia" type="date"></div>
+    <div style="display:flex;gap:12px;">
+      <div class="input-group" style="flex:1;"><label class="input-label">Hora inicio</label><input class="input-field" id="subtarea-hora-inicio" type="time"></div>
+      <div class="input-group" style="flex:1;"><label class="input-label">Hora fin</label><input class="input-field" id="subtarea-hora-fin" type="time"></div>
+    </div>
+    <button class="btn-primary" onclick="saveSubtareaSheet()">Guardar</button>
+    <button class="btn-ghost" onclick="closeSubtareaSheet()">Cancelar</button>
   </div>
 </div>
 
