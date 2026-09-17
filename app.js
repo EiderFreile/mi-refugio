@@ -2,7 +2,7 @@
 
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
-const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'otras',ico:'🎈',lbl:'Planes',col:'pink'},{id:'dump',ico:'🧠',lbl:'Brain dump',col:'teal'}];
+const DAY_TABS=[{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'otras',ico:'🎈',lbl:'Planes',col:'pink'},{id:'dump',ico:'🧠',lbl:'Brain dump',col:'teal'}];
 const WORK_TABS=[{id:'mensual',ico:'🗓️',lbl:'Mensual',col:'lav'},{id:'semanal',ico:'📆',lbl:'Semanal',col:'pink'},{id:'diario',ico:'🕐',lbl:'Diario',col:'teal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease',col:'blue'},{id:'formaciones',ico:'🎓',lbl:'MSM',col:'peach'}];
 
 let state={
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(state.mode==='work'){
     document.getElementById('pill-day').classList.remove('active');
     document.getElementById('pill-work').classList.add('active');
-    state.tab='mensual'; renderNav(); navigateTo('mensual');
+    state.tab='diario'; renderNav(); navigateTo('diario');
   } else { renderNav(); navigateTo('casa'); }
 });
 
@@ -204,7 +204,7 @@ function setMode(mode){
   localStorage.setItem('mode',mode);
   document.getElementById('pill-day').classList.toggle('active',mode==='day');
   document.getElementById('pill-work').classList.toggle('active',mode==='work');
-  const first=mode==='day'?'casa':'mensual';
+  const first=mode==='day'?'casa':'diario';
   state.tab=first; renderNav(); navigateTo(first);
 }
 
@@ -2343,7 +2343,7 @@ function checkAndSendNotif(){
   if(Notification.permission!=='granted') return;
   const now=new Date(),h=now.getHours(),m=now.getMinutes();
   NOTIF_TIMES.forEach(({hour,min,key,msg})=>{
-    if(h===hour&&m===min){const k=`notif_${key}_${now.toISOString().slice(0,10)}`;if(!localStorage.getItem(k)){localStorage.setItem(k,'1');new Notification('Mi Refugio',{body:msg,icon:'/mi-refugio/icon-192.png'});}}
+    if(h===hour&&m===min){const k=`notif_${key}_${now.toISOString().slice(0,10)}`;if(!localStorage.getItem(k)){localStorage.setItem(k,'1');new Notification('Mi organizador',{body:msg,icon:'/mi-refugio/icon-192.png'});}}
   });
 }
 function startNotifCheck(){setInterval(checkAndSendNotif,60000);}
