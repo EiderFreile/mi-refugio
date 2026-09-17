@@ -142,6 +142,14 @@
     <div class="scroll-area"><div id="mensual-area"></div></div>
   </div>
 
+  <div id="screen-semanal" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Semanal</h1>
+      <button onclick="openSemanalNuevaTarea()" style="background:var(--lav);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Tarea</button>
+    </div>
+    <div class="scroll-area"><div id="semanal-area"></div></div>
+  </div>
+
   <div id="screen-formaciones" class="screen">
     <div class="page-header" style="justify-content:flex-start;gap:16px;">
       <h1 class="page-title">Formaciones MSM</h1>
@@ -424,6 +432,11 @@
     <input type="hidden" id="mensual-tarea-id">
     <div class="input-group"><label class="input-label">Nombre</label><input class="input-field" id="mensual-tarea-name" placeholder="¿Qué tarea es?"></div>
     <div class="input-group"><label class="input-label">Mes</label><select class="input-field" id="mensual-tarea-mes"></select></div>
+    <div class="input-group"><label class="input-label">Semana</label><select class="input-field" id="mensual-tarea-semana" onchange="populateMensualDiaSelect()"></select></div>
+    <div class="input-group"><label class="input-label">Día</label><select class="input-field" id="mensual-tarea-dia"></select></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;">
+      <input type="checkbox" id="mensual-tarea-prioridad"> ⭐ Prioridad de esta semana
+    </label>
     <button class="btn-primary" onclick="saveMensualTarea()">Guardar</button>
     <button class="btn-ghost" onclick="closeMensualTareaSheet()">Cancelar</button>
     <button class="btn-danger" id="mensual-tarea-delete-btn" onclick="deleteMensualTarea()" style="display:none;">Eliminar</button>
