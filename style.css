@@ -7,6 +7,11 @@
   --red:#E07070; --red-light:#FFE8E8;
   --yellow:#D97706; --yellow-light:#FEF3C7;
   --green:#16A34A; --green-light:#DCFCE7;
+  --pink:#EC4899; --pink-light:#FCE7F3;
+  --blue:#3B82F6; --blue-light:#DBEAFE;
+  --peach:#F97316; --peach-light:#FFEDD5;
+  --teal:#0D9488; --teal-light:#CCFBF1;
+  --gray:#6B7280; --gray-light:#E5E7EB;
   --radius:14px; --tab-h:60px;
   --ease:cubic-bezier(0.4,0,0.2,1); --spring:cubic-bezier(0.34,1.56,0.64,1);
 }
@@ -535,3 +540,22 @@ body.dark{--bg:#111110;--surface:#1C1C1B;--border:#2A2A28;--text:#F0F0EE;--text-
 .kanban-col-title-curso .kanban-col-count { color: var(--yellow); }
 .kanban-col-title-done { border-bottom-color: var(--green); }
 .kanban-col-title-done .kanban-col-count { color: var(--green); }
+
+/* ── Personal · Casa (calendario mensual de tareas del hogar) ── */
+.casa-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;}
+.casa-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-soft);font-weight:700;}
+.casa-legend-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.casa-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);}
+.casa-table{border-collapse:collapse;font-size:11px;width:100%;}
+.casa-table th,.casa-table td{padding:5px 3px;text-align:center;}
+.casa-table thead th{font-size:10px;font-weight:700;color:var(--text-muted);border-bottom:1.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:3;}
+.casa-th-name{position:sticky;left:0;background:var(--surface);text-align:left!important;padding:8px 10px!important;font-size:12px;font-weight:700;white-space:nowrap;z-index:4;border-right:1.5px solid var(--border);min-width:130px;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+.casa-table thead .casa-th-name{z-index:5;}
+.casa-table tbody tr:nth-child(even) td{background:var(--bg);}
+.casa-table td{border-bottom:1px solid var(--border);min-width:24px;}
+.casa-dot{width:15px;height:15px;border-radius:50%;margin:0 auto;border:2px solid var(--border);cursor:pointer;transition:all .15s;background:transparent;}
+.casa-dot:active{transform:scale(0.75);}
+.casa-dot.scheduled{border-color:var(--dot-color,var(--lav));}
+.casa-dot.done{background:var(--dot-color,var(--lav));border-color:var(--dot-color,var(--lav));}
+.week-toggle-chip{padding:6px 12px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);-webkit-tap-highlight-color:transparent;}
+.week-toggle-chip.active{background:var(--dot-color,var(--lav));border-color:var(--dot-color,var(--lav));color:white;}
