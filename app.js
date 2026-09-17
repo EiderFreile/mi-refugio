@@ -3,7 +3,7 @@
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
 const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio'},{id:'listas',ico:'✅',lbl:'Listas'},{id:'porhacer',ico:'✍️',lbl:'Por hacer'},{id:'notas',ico:'📝',lbl:'Notas'}];
-const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen'},{id:'tareas',ico:'✅',lbl:'Tareas'},{id:'agenda',ico:'📅',lbl:'Agenda'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease'},{id:'formaciones',ico:'🎓',lbl:'MSM'}];
+const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen'},{id:'tareas',ico:'✅',lbl:'Tareas'},{id:'agenda',ico:'📅',lbl:'Agenda'},{id:'mensual',ico:'🗓️',lbl:'Mensual'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease'},{id:'formaciones',ico:'🎓',lbl:'MSM'}];
 
 let state={
   mode:localStorage.getItem('mode')||'day', tab:'inicio',
@@ -11,7 +11,7 @@ let state={
   checklists:{}, progress:{}, weekProgress:{}, noneProgress:{},
   notes:{}, gastos:{}, gastosWeek:{}, categorias:{},
   budget:parseFloat(localStorage.getItem('budget')||'0'),
-  tareas:{}, eventos:{}, tareaCats:{}, porhacer:{}, wlIn:{}, wlOut:{}, wlInTemplate:{departamentos:{}, docs:{}}, formaciones:{},
+  tareas:{}, eventos:{}, tareaCats:{}, porhacer:{}, wlIn:{}, wlOut:{}, wlInTemplate:{departamentos:{}, docs:{}}, formaciones:{}, mensualTareas:{},
 };
 
 let clColor=COLORS[0].id, noteColor=COLORS[1].id, clItems=[], editingPasos=[];
@@ -19,6 +19,7 @@ let calView='mes', calDate=new Date(), calSelected=todayKey();
 let tareaFilter='todas';
 let wlTab='in';
 let editingWLDeps=[], editingWLDocs=[];
+let mensualMonthsCount=1, mensualBaseDate=new Date();
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded',()=>{
@@ -176,6 +177,7 @@ function initListeners(){
   DB.listen('refugio2/wlOut',d=>{state.wlOut=d||{};if(state.tab==='wetlease')renderWL();});
   DB.listen('refugio2/wlInTemplate',d=>{state.wlInTemplate=d||{departamentos:{}, docs:{}};});
   DB.listen('refugio2/formaciones',d=>{state.formaciones=d||{};renderFormaciones();renderMiniCal();});
+  DB.listen('refugio2/mensualTareas',d=>{state.mensualTareas=d||{};if(state.tab==='mensual')renderMensual();});
 }
 
 // ── Mode ──
@@ -207,6 +209,7 @@ function navigateTo(tab){
   if(tab==='tareas') renderTareaCatList();
   if(tab==='wetlease') renderWL();
   if(tab==='formaciones') renderFormaciones();
+  if(tab==='mensual') renderMensual();
   const fab=document.getElementById('fab');
   if(fab) fab.style.display = tab==='ajustes' ? 'none' : 'flex';
 }
@@ -1427,6 +1430,111 @@ function saveWLTemplate(){
   const departamentos={}; editingWLTemplateDeps.filter(d=>d.nombre.trim()).forEach(d=>departamentos[d.id]={id:d.id,nombre:d.nombre.trim()});
   const docs={}; editingWLTemplateDocs.filter(d=>d.texto.trim()).forEach(d=>docs[d.id]={id:d.id,texto:d.texto.trim()});
   DB.set('refugio2/wlInTemplate', {departamentos, docs}).then(()=>{closeWLTemplateSheet();showToast('Plantilla guardada ✓');});
+}
+
+// ── TRABAJO · MENSUAL ──
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthLabel(key){
+  const [y,m]=key.split('-');
+  const d=new Date(parseInt(y), parseInt(m)-1, 1);
+  const s=d.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+
+function setMensualCount(n){ mensualMonthsCount=n; renderMensual(); }
+function mensualNav(dir){
+  mensualBaseDate.setMonth(mensualBaseDate.getMonth()+dir);
+  mensualBaseDate=new Date(mensualBaseDate);
+  renderMensual();
+}
+
+function renderMensualTareaRow(t){
+  const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `<div class="check-item" onclick="openMensualTareaSheet('${t.id}')">
+    <div class="check-box ${t.done?'checked':''}" onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
+    <span class="check-label ${t.done?'done':''}">${t.name}</span>
+  </div>`;
+}
+
+function renderMensual(){
+  const area=document.getElementById('mensual-area'); if(!area) return;
+  const meses=Array.from({length:mensualMonthsCount},(_,i)=>{
+    const d=new Date(mensualBaseDate.getFullYear(), mensualBaseDate.getMonth()+i, 1);
+    return monthKey(d);
+  });
+  const allTareas=Object.values(state.mensualTareas||{});
+  const sinMes=allTareas.filter(t=>!t.mes).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const rangeLabel = meses.length>1 ? `${monthLabel(meses[0])} – ${monthLabel(meses[meses.length-1])}` : monthLabel(meses[0]);
+
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <button class="cal-nav-btn" onclick="mensualNav(-1)">‹</button>
+    <div class="cal-nav-title">${rangeLabel}</div>
+    <button class="cal-nav-btn" onclick="mensualNav(1)">›</button>
+  </div>
+  <div class="cal-view-toggle">
+    ${[1,2,3].map(n=>`<button class="cal-view-btn ${mensualMonthsCount===n?'active':''}" onclick="setMensualCount(${n})">${n} mes${n>1?'es':''}</button>`).join('')}
+  </div>`;
+
+  meses.forEach(mk=>{
+    const tareasMes=allTareas.filter(t=>t.mes===mk).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    html+=`<div class="section-label">${monthLabel(mk)}</div>`;
+    html+= tareasMes.length ? `<div class="card">${tareasMes.map(t=>renderMensualTareaRow(t)).join('')}</div>`
+      : `<div class="empty-state" style="padding:20px;"><p>Sin tareas este mes.</p></div>`;
+  });
+
+  html+=`<div class="section-label" style="margin-top:24px;">📥 Pendientes de asignar</div>`;
+  html+= sinMes.length ? `<div class="card">${sinMes.map(t=>renderMensualTareaRow(t)).join('')}</div>`
+    : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de asignar.</p></div>`;
+
+  area.innerHTML=html;
+}
+
+function toggleMensualTarea(id){
+  const t=state.mensualTareas[id]; if(!t) return;
+  DB.update(`refugio2/mensualTareas/${id}`,{done:!t.done});
+}
+
+function populateMensualMesSelect(){
+  const sel=document.getElementById('mensual-tarea-mes'); if(!sel) return;
+  const opts=[`<option value="">Sin mes (pendiente)</option>`];
+  const base=new Date();
+  for(let i=-1;i<12;i++){
+    const d=new Date(base.getFullYear(), base.getMonth()+i, 1);
+    const k=monthKey(d);
+    opts.push(`<option value="${k}">${monthLabel(k)}</option>`);
+  }
+  sel.innerHTML=opts.join('');
+}
+
+function openMensualTareaSheet(id){
+  const t=id?state.mensualTareas[id]:null;
+  const isNew=!t;
+  document.getElementById('mensual-tarea-id').value=t?.id||'';
+  document.getElementById('mensual-tarea-name').value=t?.name||'';
+  populateMensualMesSelect();
+  document.getElementById('mensual-tarea-mes').value=t?.mes||'';
+  document.getElementById('mensual-tarea-sheet-title').textContent=isNew?'Nueva tarea':'Editar tarea';
+  document.getElementById('mensual-tarea-delete-btn').style.display=isNew?'none':'block';
+  document.getElementById('mensual-tarea-sheet').classList.add('open');
+}
+function closeMensualTareaSheet(){document.getElementById('mensual-tarea-sheet').classList.remove('open');}
+
+function saveMensualTarea(){
+  const name=document.getElementById('mensual-tarea-name').value.trim();
+  if(!name){showToast('Escribe el nombre');return;}
+  const id=document.getElementById('mensual-tarea-id').value||Date.now().toString();
+  const data={
+    id, name,
+    mes:document.getElementById('mensual-tarea-mes').value||'',
+    done:state.mensualTareas[id]?.done||false,
+    createdAt:state.mensualTareas[id]?.createdAt||Date.now()
+  };
+  DB.set(`refugio2/mensualTareas/${id}`,data).then(()=>{closeMensualTareaSheet();showToast('Guardado ✓');});
+}
+function deleteMensualTarea(){
+  const id=document.getElementById('mensual-tarea-id').value;
+  if(!id||!confirm('¿Eliminar?'))return;
+  DB.remove(`refugio2/mensualTareas/${id}`).then(()=>{closeMensualTareaSheet();showToast('Eliminada');});
 }
 
 // ── FORMACIONES MSM ──
