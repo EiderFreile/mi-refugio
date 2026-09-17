@@ -158,6 +158,14 @@
     <div class="scroll-area"><div id="diario-area"></div></div>
   </div>
 
+  <div id="screen-casa" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Casa</h1>
+      <button onclick="openCasaTareaSheet(null)" style="background:var(--green);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Tarea</button>
+    </div>
+    <div class="scroll-area"><div id="casa-area"></div></div>
+  </div>
+
   <div id="screen-formaciones" class="screen">
     <div class="page-header" style="justify-content:flex-start;gap:16px;">
       <h1 class="page-title">Formaciones MSM</h1>
@@ -481,6 +489,43 @@
     </div>
     <button class="btn-primary" onclick="saveSubtareaSheet()">Guardar</button>
     <button class="btn-ghost" onclick="closeSubtareaSheet()">Cancelar</button>
+  </div>
+</div>
+
+<!-- CASA · TAREA SHEET -->
+<div class="overlay" id="casa-tarea-sheet" onclick="closeCasaTareaSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="casa-tarea-sheet-title">Nueva tarea de casa</div>
+    <input type="hidden" id="casa-tarea-id">
+    <div class="input-group"><label class="input-label">Nombre</label><input class="input-field" id="casa-tarea-nombre" placeholder="Ej: Sacar la basura"></div>
+    <div class="input-group"><label class="input-label">Frecuencia</label>
+      <select class="input-field" id="casa-tarea-frecuencia" onchange="toggleCasaFrecuenciaCampos()">
+        <option value="diario">🔴 Diario</option>
+        <option value="semanal">🟢 Cada semana</option>
+        <option value="quincenal">🟠 Cada 2 semanas</option>
+        <option value="necesidad">⚪ Según necesidad</option>
+      </select>
+    </div>
+    <div class="input-group" id="casa-tarea-dia-group"><label class="input-label">Día de la semana</label>
+      <select class="input-field" id="casa-tarea-dia">
+        <option value="0">Lunes</option>
+        <option value="1">Martes</option>
+        <option value="2">Miércoles</option>
+        <option value="3">Jueves</option>
+        <option value="4">Viernes</option>
+        <option value="5">Sábado</option>
+        <option value="6">Domingo</option>
+      </select>
+    </div>
+    <div class="input-group" id="casa-tarea-semanas-group">
+      <label class="input-label">¿Qué semanas del mes toca?</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="casa-semanas-chips"></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Desmarca una semana si ese mes no te toca hacerla.</div>
+    </div>
+    <button class="btn-primary" onclick="saveCasaTarea()">Guardar</button>
+    <button class="btn-ghost" onclick="closeCasaTareaSheet()">Cancelar</button>
+    <button class="btn-danger" id="casa-tarea-delete-btn" onclick="deleteCasaTarea()" style="display:none;">Eliminar</button>
   </div>
 </div>
 
