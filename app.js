@@ -2,8 +2,8 @@
 
 const COLORS=[{id:'lav',hex:'#EDE9F8',dot:'#9B8EC4'},{id:'yellow',hex:'#FEF9C3',dot:'#CA8A04'},{id:'green',hex:'#DCFCE7',dot:'#16A34A'},{id:'pink',hex:'#FCE7F3',dot:'#DB2777'},{id:'blue',hex:'#DBEAFE',dot:'#2563EB'},{id:'peach',hex:'#FFEDD5',dot:'#EA580C'},{id:'gray',hex:'#F3F4F6',dot:'#6B7280'}];
 const TIPO_ICONS={reunion:'👥',llamada:'📞',entrega:'⏰',recordatorio:'📌',otro:'🏢'};
-const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'otras',ico:'🎈',lbl:'Planes',col:'pink'},{id:'listas',ico:'✅',lbl:'Listas',col:'peach'},{id:'porhacer',ico:'✍️',lbl:'Por hacer',col:'peach'},{id:'notas',ico:'📝',lbl:'Notas',col:'blue'}];
-const WORK_TABS=[{id:'hoy',ico:'☀️',lbl:'Resumen',col:'yellow'},{id:'tareas',ico:'✅',lbl:'Tareas',col:'green'},{id:'agenda',ico:'📅',lbl:'Agenda',col:'blue'},{id:'mensual',ico:'🗓️',lbl:'Mensual',col:'lav'},{id:'semanal',ico:'📆',lbl:'Semanal',col:'pink'},{id:'diario',ico:'🕐',lbl:'Diario',col:'teal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease',col:'blue'},{id:'formaciones',ico:'🎓',lbl:'MSM',col:'peach'}];
+const DAY_TABS=[{id:'inicio',ico:'🏠',lbl:'Inicio',col:'lav'},{id:'casa',ico:'🏡',lbl:'Casa',col:'green'},{id:'otras',ico:'🎈',lbl:'Planes',col:'pink'},{id:'dump',ico:'🧠',lbl:'Brain dump',col:'teal'}];
+const WORK_TABS=[{id:'mensual',ico:'🗓️',lbl:'Mensual',col:'lav'},{id:'semanal',ico:'📆',lbl:'Semanal',col:'pink'},{id:'diario',ico:'🕐',lbl:'Diario',col:'teal'},{id:'wetlease',ico:'✈️',lbl:'Wet Lease',col:'blue'},{id:'formaciones',ico:'🎓',lbl:'MSM',col:'peach'}];
 
 let state={
   mode:localStorage.getItem('mode')||'day', tab:'inicio',
@@ -14,6 +14,7 @@ let state={
   tareas:{}, eventos:{}, tareaCats:{}, porhacer:{}, wlIn:{}, wlOut:{}, wlInTemplate:{departamentos:{}, docs:{}}, formaciones:{}, mensualTareas:{}, semanaNotas:{},
   casaTareas:{}, casaHecho:{},
   otrasTareas:{}, otrasAnimo:{},
+  brainDump:{},
 };
 
 let clColor=COLORS[0].id, noteColor=COLORS[1].id, clItems=[], editingPasos=[];
@@ -45,22 +46,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(state.darkMode) document.body.classList.add('dark');
   document.getElementById('pill-day').addEventListener('click',()=>setMode('day'));
   document.getElementById('pill-work').addEventListener('click',()=>setMode('work'));
-  document.getElementById('fab').addEventListener('click', ()=>{
-    if(state.mode === 'day') openQuickAddDay();
-    else openQuickAddWork();
-  });
   initListeners();
-  renderGreeting();
   renderSettings();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(typeof Notification!=='undefined'&&Notification.permission==='granted') startNotifCheck();
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){renderGreeting();checkAndSendNotif();}});
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')checkAndSendNotif();});
   if(state.mode==='work'){
     document.getElementById('pill-day').classList.remove('active');
     document.getElementById('pill-work').classList.add('active');
-    state.tab='hoy'; renderNav(); navigateTo('hoy');
-  } else { renderNav(); navigateTo('inicio'); }
-  calDate=new Date(); renderCalendar();
+    state.tab='mensual'; renderNav(); navigateTo('mensual');
+  } else { renderNav(); navigateTo('casa'); }
 });
 
 
@@ -198,8 +193,9 @@ function initListeners(){
   DB.listen('refugio2/semanaNotas',d=>{state.semanaNotas=d||{};if(state.tab==='semanal')renderSemanal();});
   DB.listen('refugio2/casaTareas',d=>{state.casaTareas=d||{};if(state.tab==='casa')renderCasa();});
   DB.listen('refugio2/casaHecho',d=>{state.casaHecho=d||{};if(state.tab==='casa')renderCasa();});
-  DB.listen('refugio2/otrasTareas',d=>{state.otrasTareas=d||{};if(state.tab==='otras'){renderOtras();if(document.getElementById('otras-dia-sheet')?.classList.contains('open'))renderOtrasDiaTareas();}});
-  DB.listen('refugio2/otrasAnimo',d=>{state.otrasAnimo=d||{};if(state.tab==='otras'){renderOtras();if(document.getElementById('otras-dia-sheet')?.classList.contains('open'))renderOtrasMoodChips();}});
+  DB.listen('refugio2/otrasTareas',d=>{state.otrasTareas=d||{};if(state.tab==='otras')renderOtras();});
+  DB.listen('refugio2/otrasAnimo',d=>{state.otrasAnimo=d||{};if(state.tab==='otras')renderOtras();});
+  DB.listen('refugio2/brainDump',d=>{state.brainDump=d||{};if(state.tab==='dump')renderDump();});
 }
 
 // ── Mode ──
@@ -208,7 +204,7 @@ function setMode(mode){
   localStorage.setItem('mode',mode);
   document.getElementById('pill-day').classList.toggle('active',mode==='day');
   document.getElementById('pill-work').classList.toggle('active',mode==='work');
-  const first=mode==='day'?'inicio':'hoy';
+  const first=mode==='day'?'casa':'mensual';
   state.tab=first; renderNav(); navigateTo(first);
 }
 
@@ -231,8 +227,6 @@ function navigateTo(tab){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+tab)?.classList.add('active');
   renderNav();
-  if(tab==='agenda') renderCalendar();
-  if(tab==='tareas') renderTareaCatList();
   if(tab==='wetlease') renderWL();
   if(tab==='formaciones') renderFormaciones();
   if(tab==='mensual') renderMensual();
@@ -240,49 +234,8 @@ function navigateTo(tab){
   if(tab==='diario') renderDiario();
   if(tab==='casa') renderCasa();
   if(tab==='otras') renderOtras();
-  const fab=document.getElementById('fab');
-  if(fab) fab.style.display = tab==='ajustes' ? 'none' : 'flex';
+  if(tab==='dump') renderDump();
 }
-
-// ── Greeting ──
-function renderGreeting(){
-  const h=new Date().getHours();
-  const g=h<13?'Buenos días':h<20?'Buenas tardes':'Buenas noches';
-  const el=document.getElementById('greeting'); if(el) el.textContent=g;
-  const dl=document.getElementById('date-label');
-  if(dl) dl.textContent=new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-  const ht=document.getElementById('hoy-title');
-  if(ht) ht.textContent=new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-}
-
-// ── Quick Add ──
-function openQuickAddDay(){
-  // Si está en una pestaña específica, abrir directamente
-  if(state.tab==='listas'){openCLSheet(null);return;}
-  if(state.tab==='porhacer'){openPorHacerSheet();return;}
-  if(state.tab==='notas'){openNoteSheet(null);return;}
-  // En inicio mostrar opciones de Mi día
-  showQuickSheet([
-    {ico:'✅',lbl:'Lista',fn:'openCLSheet(null)'},
-    {ico:'✍️',lbl:'Por hacer',fn:'openPorHacerSheet()'},
-    {ico:'📝',lbl:'Nota',fn:'openNoteSheet(null)'},
-  ]);
-}
-
-function openQuickAddWork(){
-  openTareaSheet(null);
-}
-
-function showQuickSheet(options){
-  document.getElementById('quick-add').classList.add('open');
-  document.getElementById('quick-add-grid').innerHTML = options.map(o=>`
-    <div class="quick-add-btn" onclick="closeQuickAdd();${o.fn}">
-      <div class="qa-icon">${o.ico}</div>
-      <div class="qa-label">${o.lbl}</div>
-    </div>`).join('');
-}
-
-function closeQuickAdd(){document.getElementById('quick-add').classList.remove('open');}
 
 // ── Color picker ──
 function renderColorPicker(id,selected){
@@ -1848,8 +1801,8 @@ function renderDiarioMiniCalHTML(){
     const nombres=nombresPorDia[key]||[];
     grid+=`<div class="cal-day ${isToday?'today':''} ${isSel&&!isToday?'selected':''}" onclick="selectDiaVista('${key}')">
       <div class="cal-day-num">${d}</div>
-      ${nombres.slice(0,2).map(n=>`<div style="font-size:9px;font-weight:600;color:${isToday?'rgba(255,255,255,0.9)':'var(--lav-dark)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.3;margin-top:1px;">${n}</div>`).join('')}
-      ${nombres.length>2?`<div style="font-size:9px;font-weight:700;color:${isToday?'rgba(255,255,255,0.7)':'var(--text-muted)'};">+${nombres.length-2} más</div>`:''}
+      ${nombres.slice(0,2).map(n=>`<div class="cal-day-item ${isToday?'on-color':''}">${n}</div>`).join('')}
+      ${nombres.length>2?`<div class="cal-day-more ${isToday?'on-color':''}">+${nombres.length-2} más</div>`:''}
     </div>`;
   }
   return `<div class="card" style="padding:14px 12px;margin-bottom:16px;background:linear-gradient(160deg,var(--lav-light),var(--pink-light) 60%,var(--peach-light));border:none;">
@@ -2091,18 +2044,19 @@ function renderOtras(){
   for(let i=0;i<firstDay;i++) grid+=`<div class="cal-day empty"></div>`;
   for(let d=1;d<=days;d++){
     const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=key===today;
+    const isToday=key===today, isSel=key===otrasDiaSel;
     const mood=state.otrasAnimo?.[key];
     const items=getOtrasTareasPorDia(key);
     const maxNombres = mood ? 1 : 2;
     let cellStyle='';
     if(mood) cellStyle+=`background:${mood.color};`;
-    if(isToday) cellStyle+=`box-shadow:inset 0 0 0 2px ${mood?'white':'var(--lav)'};`;
-    grid+=`<div class="cal-day" style="${cellStyle}" onclick="openOtrasDiaSheet('${key}')">
+    if(isSel) cellStyle+=`box-shadow:inset 0 0 0 2.5px ${mood?'white':'var(--pink)'};`;
+    else if(isToday) cellStyle+=`box-shadow:inset 0 0 0 2px ${mood?'white':'var(--lav)'};`;
+    grid+=`<div class="cal-day" style="${cellStyle}" onclick="selectOtrasDia('${key}')">
       <div class="cal-day-num" style="${mood?'color:white;':''}">${d}</div>
       ${mood?`<div style="font-size:12px;line-height:1;margin-top:1px;">${mood.emoji}</div>`:''}
-      ${items.slice(0,maxNombres).map(t=>`<div style="font-size:8px;font-weight:600;color:${mood?'rgba(255,255,255,0.95)':'var(--lav-dark)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.2;">${t.done?'✓ ':''}${t.nombre}</div>`).join('')}
-      ${items.length>maxNombres?`<div style="font-size:8px;font-weight:700;color:${mood?'rgba(255,255,255,0.75)':'var(--text-muted)'};">+${items.length-maxNombres}</div>`:''}
+      ${items.slice(0,maxNombres).map(t=>`<div class="cal-day-item ${mood?'on-color':''}">${t.done?'✓ ':''}${t.nombre}</div>`).join('')}
+      ${items.length>maxNombres?`<div class="cal-day-more ${mood?'on-color':''}">+${items.length-maxNombres}</div>`:''}
     </div>`;
   }
 
@@ -2115,20 +2069,24 @@ function renderOtras(){
   <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;">Toca un día para apuntar planes o marcar cómo te sientes.</div>`;
 
   area.innerHTML=html;
+  renderOtrasDiaPanel();
 }
 
-function openOtrasDiaSheet(key){
-  otrasDiaSel=key;
-  const d=new Date(key+'T12:00:00');
+// Panel del día seleccionado (siempre visible al lado del calendario, sin sheet)
+function renderOtrasDiaPanel(){
+  const titulo=document.getElementById('otras-dia-titulo'); if(!titulo) return;
+  const d=new Date(otrasDiaSel+'T12:00:00');
   const txt=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-  document.getElementById('otras-dia-titulo').textContent=txt.charAt(0).toUpperCase()+txt.slice(1);
-  document.getElementById('otras-tarea-nueva').value='';
-  document.getElementById('otras-tarea-hora').value='';
+  titulo.textContent=txt.charAt(0).toUpperCase()+txt.slice(1);
   renderOtrasMoodChips();
   renderOtrasDiaTareas();
-  document.getElementById('otras-dia-sheet').classList.add('open');
 }
-function closeOtrasDiaSheet(){document.getElementById('otras-dia-sheet').classList.remove('open');}
+function selectOtrasDia(key){
+  otrasDiaSel=key;
+  const input=document.getElementById('otras-tarea-nueva'); if(input) input.value='';
+  const hora=document.getElementById('otras-tarea-hora'); if(hora) hora.value='';
+  renderOtras();
+}
 
 function renderOtrasMoodChips(){
   const c=document.getElementById('otras-mood-chips'); if(!c) return;
@@ -2174,6 +2132,44 @@ function toggleOtrasTarea(id){
 }
 function deleteOtrasTarea(id){
   DB.remove(`refugio2/otrasTareas/${id}`);
+}
+
+// ── PERSONAL · BRAIN DUMP (volcado libre de la cabeza, sin fechas ni estructura) ──
+function renderDump(){
+  const area=document.getElementById('dump-area'); if(!area) return;
+  const items=Object.values(state.brainDump||{}).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+
+  let html=`<div style="display:flex;gap:8px;margin-bottom:16px;">
+    <input class="input-field" id="dump-input" placeholder="Suelta lo que tengas en la cabeza, sin filtro..." style="flex:1;" onkeydown="if(event.key==='Enter')addBrainDump()">
+    <button class="remove-btn" style="color:var(--teal);border-color:var(--teal);font-size:20px;" onclick="addBrainDump()">+</button>
+  </div>`;
+
+  if(!items.length){
+    html+=`<div class="empty-state"><div class="empty-icon">🧠</div><p>Nada por aquí todavía.<br>Escribe lo que se te pase por la cabeza, tal cual.</p></div>`;
+  } else {
+    html+=`<div class="card">${items.map(it=>`
+      <div class="check-item" style="cursor:default;">
+        <span class="check-label" style="flex:1;">${it.text}</span>
+        <button class="remove-btn" onclick="deleteBrainDump('${it.id}')">×</button>
+      </div>`).join('')}</div>
+      <button class="btn-ghost" style="margin-top:12px;color:var(--red);" onclick="clearBrainDump()">🗑️ Vaciar todo</button>`;
+  }
+
+  area.innerHTML=html;
+}
+function addBrainDump(){
+  const input=document.getElementById('dump-input');
+  const text=input.value.trim();
+  if(!text) return;
+  const id='bd'+Date.now()+Math.random().toString(36).slice(2,6);
+  DB.set(`refugio2/brainDump/${id}`,{id,text,createdAt:Date.now()}).then(()=>{input.value='';input.focus();});
+}
+function deleteBrainDump(id){
+  DB.remove(`refugio2/brainDump/${id}`);
+}
+function clearBrainDump(){
+  if(!confirm('¿Vaciar todo el brain dump? No se puede deshacer.'))return;
+  DB.remove('refugio2/brainDump').then(()=>showToast('Vaciado ✓'));
 }
 
 // ── FORMACIONES MSM ──
