@@ -27,7 +27,7 @@ let semanalMonthsCount=1, semanalBaseDate=new Date();
 let diaVistaSelected=todayKey(), diarioCalMonth=new Date();
 let editingSubtareas=[];
 let casaBaseDate=new Date();
-let editingSemanasActivas={1:true,2:true,3:true,4:true,5:true};
+let editingSemanasActivas={1:true,2:true,3:true,4:true,5:true,6:true};
 let otrasCalMonth=new Date(), otrasDiaSel=todayKey();
 const MOOD_OPTIONS=[
   {emoji:'😊',label:'Feliz',color:'var(--green)'},
@@ -1898,12 +1898,22 @@ function getCasaTareasOrdenadas(){
   return Object.values(state.casaTareas||{}).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
 }
 
+// Nº de semana del mes (1, 2, 3...) contando semanas de lunes a domingo — igual que en Semanal,
+// NO por bloques de 7 días desde el día 1. La semana 1 es la que contiene el día 1 (aunque
+// empiece en el mes anterior), y a partir de ahí cada semana nueva empieza en lunes.
+function semanaDelMesNum(dateObj){
+  const first=new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+  const startMonday=mondayOf(first);
+  const diffDays=Math.round((dateObj-startMonday)/86400000);
+  return Math.floor(diffDays/7)+1;
+}
+
 // ¿Toca esta tarea la semana en la que cae "dateObj"? No importa el día concreto de la semana,
-// solo si esa semana del mes está marcada como activa (o si es diario/según-necesidad).
+// solo si esa semana (de lunes a domingo) está marcada como activa (o si es diario/según-necesidad).
 function casaEsDiaProgramado(t, dateObj){
   if(t.frecuencia==='diario') return true;
   if(t.frecuencia==='necesidad') return false;
-  const semanaNum=Math.ceil(dateObj.getDate()/7); // semana 1-5 del mes, aproximada por bloques de 7 días
+  const semanaNum=semanaDelMesNum(dateObj);
   return t.semanasActivas ? (t.semanasActivas[semanaNum]!==false) : true;
 }
 
@@ -1970,7 +1980,7 @@ function renderCasaSemanasChips(){
   const c=document.getElementById('casa-semanas-chips'); if(!c) return;
   const frec=document.getElementById('casa-tarea-frecuencia')?.value;
   const color=CASA_FREQ_COLOR[frec]||'var(--lav)';
-  c.innerHTML=[1,2,3,4,5].map(n=>`<button type="button" class="week-toggle-chip ${editingSemanasActivas[n]!==false?'active':''}" style="--dot-color:${color};" onclick="toggleCasaSemanaActiva(${n})">S${n}</button>`).join('');
+  c.innerHTML=[1,2,3,4,5,6].map(n=>`<button type="button" class="week-toggle-chip ${editingSemanasActivas[n]!==false?'active':''}" style="--dot-color:${color};" onclick="toggleCasaSemanaActiva(${n})">S${n}</button>`).join('');
 }
 function toggleCasaSemanaActiva(n){
   editingSemanasActivas[n]=editingSemanasActivas[n]===false ? true : false;
@@ -1991,7 +2001,7 @@ function openCasaTareaSheet(id){
   document.getElementById('casa-tarea-nombre').value=t?.nombre||'';
   document.getElementById('casa-tarea-frecuencia').value=t?.frecuencia||'semanal';
   editingSemanasActivas = t?.semanasActivas ? {...t.semanasActivas} : (t?.frecuencia==='quincenal' || (isNew && document.getElementById('casa-tarea-frecuencia').value==='quincenal')
-    ? {1:true,2:false,3:true,4:false,5:true} : {1:true,2:true,3:true,4:true,5:true});
+    ? {1:true,2:false,3:true,4:false,5:true,6:false} : {1:true,2:true,3:true,4:true,5:true,6:true});
   toggleCasaFrecuenciaCampos();
   document.getElementById('casa-tarea-sheet-title').textContent=isNew?'Nueva tarea de casa':'Editar tarea de casa';
   document.getElementById('casa-tarea-delete-btn').style.display=isNew?'none':'block';
