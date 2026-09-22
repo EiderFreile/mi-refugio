@@ -1559,9 +1559,7 @@ function populateMensualDiaSelect(){
 function toggleMensualSubtareas(){
   const tamano=document.getElementById('mensual-tarea-tamano').value;
   const subCont=document.getElementById('mensual-tarea-subtareas-container');
-  const horaGroup=document.getElementById('mensual-tarea-hora-group');
   if(subCont) subCont.style.display = tamano==='grande' ? 'block' : 'none';
-  if(horaGroup) horaGroup.style.display = tamano==='grande' ? 'none' : 'flex';
 }
 function renderMensualSubtareasList(){
   const c=document.getElementById('mensual-subtareas-list'); if(!c) return;
@@ -1573,13 +1571,11 @@ function renderMensualSubtareasList(){
       </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
         <input class="input-field" type="date" value="${s.dia||''}" oninput="editingSubtareas[${i}].dia=this.value" style="flex:1;font-size:12px;">
-        <input class="input-field" type="time" value="${s.horaInicio||''}" oninput="editingSubtareas[${i}].horaInicio=this.value" style="flex:1;font-size:12px;">
-        <input class="input-field" type="time" value="${s.horaFin||''}" oninput="editingSubtareas[${i}].horaFin=this.value" style="flex:1;font-size:12px;">
       </div>
     </div>`).join('');
 }
 function addMensualSubtarea(){
-  editingSubtareas.push({id:'sub'+Date.now()+Math.random().toString(36).slice(2,6), text:'', dia:'', horaInicio:'', horaFin:'', done:false});
+  editingSubtareas.push({id:'sub'+Date.now()+Math.random().toString(36).slice(2,6), text:'', dia:'', done:false, createdAt:Date.now()});
   renderMensualSubtareasList();
 }
 
@@ -1596,8 +1592,6 @@ function openMensualTareaSheet(id, presetSemana, presetDia){
   document.getElementById('mensual-tarea-dia').value = t?.dia || (isNew && presetDia ? presetDia : '');
   document.getElementById('mensual-tarea-prioridad').checked=!!t?.prioridad;
   document.getElementById('mensual-tarea-tamano').value=t?.tamano||'pequena';
-  document.getElementById('mensual-tarea-hora-inicio').value=t?.horaInicio||'';
-  document.getElementById('mensual-tarea-hora-fin').value=t?.horaFin||'';
   editingSubtareas = t?.subtareas ? Object.values(t.subtareas).map(s=>({...s})) : [];
   renderMensualSubtareasList();
   toggleMensualSubtareas();
@@ -1619,22 +1613,29 @@ function saveMensualTarea(){
     mes=monthKey(new Date(y,m-1,d));
   }
   const tamano=document.getElementById('mensual-tarea-tamano').value||'pequena';
+  const existente=state.mensualTareas[id];
   const subtareasArr=editingSubtareas.filter(s=>s.text.trim());
   const subtareas = (tamano==='grande' && subtareasArr.length)
-    ? Object.fromEntries(subtareasArr.map(s=>[s.id,{
-        id:s.id, text:s.text.trim(), dia:s.dia||'', horaInicio:s.horaInicio||'', horaFin:s.horaFin||'',
-        done:state.mensualTareas[id]?.subtareas?.[s.id]?.done||false
-      }]))
+    ? Object.fromEntries(subtareasArr.map(s=>{
+        const prev=existente?.subtareas?.[s.id];
+        const mismoDia = s.dia && prev && s.dia===prev.dia;
+        return [s.id,{
+          id:s.id, text:s.text.trim(), dia:s.dia||'',
+          orden: mismoDia ? (prev.orden ?? null) : null, // si cambia de día, pierde su posición y se reordena luego a mano
+          done: prev?.done||false,
+          createdAt: prev?.createdAt || s.createdAt || Date.now()
+        }];
+      }))
     : null;
+  const mismoDia = dia && existente && dia===existente.dia;
   const data={
     id, name, mes, semana, dia,
     prioridad:document.getElementById('mensual-tarea-prioridad').checked,
     tamano,
-    horaInicio: tamano==='grande' ? '' : (document.getElementById('mensual-tarea-hora-inicio').value||''),
-    horaFin: tamano==='grande' ? '' : (document.getElementById('mensual-tarea-hora-fin').value||''),
+    orden: mismoDia ? (existente.orden ?? null) : null,
     subtareas,
-    done:state.mensualTareas[id]?.done||false,
-    createdAt:state.mensualTareas[id]?.createdAt||Date.now()
+    done:existente?.done||false,
+    createdAt:existente?.createdAt||Date.now()
   };
   DB.set(`refugio2/mensualTareas/${id}`,data).then(()=>{closeMensualTareaSheet();showToast('Guardado ✓');});
 }
@@ -1761,17 +1762,76 @@ function getItemsDelDia(key){
   Object.values(state.mensualTareas||{}).forEach(t=>{
     const tieneSubtareas = t.subtareas && Object.keys(t.subtareas).length>0;
     if(!tieneSubtareas && t.dia===key){
-      items.push({tipo:'tarea', id:t.id, subId:null, text:t.name, done:!!t.done, horaInicio:t.horaInicio||'', horaFin:t.horaFin||'', parentName:''});
+      items.push({tipo:'tarea', id:t.id, subId:null, text:t.name, done:!!t.done, orden:(typeof t.orden==='number'?t.orden:null), createdAt:t.createdAt||0, parentName:''});
     }
     if(tieneSubtareas){
       Object.values(t.subtareas).forEach(s=>{
         if(s.dia===key){
-          items.push({tipo:'subtarea', id:t.id, subId:s.id, text:s.text, done:!!s.done, horaInicio:s.horaInicio||'', horaFin:s.horaFin||'', parentName:t.name});
+          items.push({tipo:'subtarea', id:t.id, subId:s.id, text:s.text, done:!!s.done, orden:(typeof s.orden==='number'?s.orden:null), createdAt:s.createdAt||0, parentName:t.name});
         }
       });
     }
   });
+  items.sort((a,b)=>{
+    const ao=a.orden==null?Infinity:a.orden, bo=b.orden==null?Infinity:b.orden;
+    if(ao!==bo) return ao-bo;
+    return (a.createdAt||0)-(b.createdAt||0);
+  });
   return items;
+}
+
+// Recoloca un item en la posición nuevaPos (1-indexed) dentro del día, reordenando a todos los demás
+function reordenarDia(diaKey, taskId, subId, nuevaPos){
+  const items=getItemsDelDia(diaKey);
+  const idx=items.findIndex(i=>i.id===taskId && i.subId===subId);
+  if(idx===-1) return Promise.resolve();
+  const [moved]=items.splice(idx,1);
+  const destIdx=Math.max(0,Math.min(nuevaPos-1, items.length));
+  items.splice(destIdx,0,moved);
+  const writes=items.map((it,i)=>{
+    const nuevoOrden=i+1;
+    if(it.subId){
+      return DB.update(`refugio2/mensualTareas/${it.id}/subtareas/${it.subId}`,{orden:nuevoOrden});
+    } else {
+      return DB.update(`refugio2/mensualTareas/${it.id}`,{orden:nuevoOrden});
+    }
+  });
+  return Promise.all(writes);
+}
+
+let ordenSheetDia=null;
+function openOrdenSheet(taskId, subId){
+  ordenSheetDia=diaVistaSelected;
+  document.getElementById('orden-task-id').value=taskId;
+  document.getElementById('orden-sub-id').value=subId||'';
+  const items=getItemsDelDia(ordenSheetDia);
+  const total=items.length + (items.some(i=>i.id===taskId && i.subId===(subId||null))?0:1);
+  const list=document.getElementById('orden-sheet-list');
+  const actual=items.find(i=>i.id===taskId && i.subId===(subId||null));
+  const actualPos=actual?items.indexOf(actual)+1:null;
+  let html='';
+  for(let p=1;p<=total;p++){
+    html+=`<div class="orden-option ${p===actualPos?'active':''}" onclick="chooseOrden(${p})">
+      <div class="orden-option-num">${p}</div>
+      <span>${p===1?'Primera tarea del día':`Posición ${p}`}</span>
+      ${p===actualPos?'<span style="margin-left:auto;font-size:12px;color:var(--lav);">actual</span>':''}
+    </div>`;
+  }
+  list.innerHTML=html;
+  document.getElementById('orden-sheet').classList.add('open');
+}
+function closeOrdenSheet(){
+  document.getElementById('orden-sheet').classList.remove('open');
+  ordenSheetDia=null;
+}
+function chooseOrden(nuevaPos){
+  const taskId=document.getElementById('orden-task-id').value;
+  const subId=document.getElementById('orden-sub-id').value||null;
+  const dia=ordenSheetDia||diaVistaSelected;
+  reordenarDia(dia, taskId, subId, nuevaPos).then(()=>{
+    closeOrdenSheet();
+    showToast('Orden actualizado ✓');
+  });
 }
 
 // Para cada día: nombres a mostrar (la tarea madre si el item es una subtarea, la propia tarea si es pequeña/sin dividir)
@@ -1815,14 +1875,15 @@ function renderDiarioMiniCalHTML(){
   </div>`;
 }
 
-function renderDiarioItemRow(item, showHora){
+function renderDiarioItemRow(item, pos){
   const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const onToggle = item.tipo==='subtarea' ? `toggleSubtareaDone('${item.id}','${item.subId}')` : `toggleMensualTarea('${item.id}')`;
   const onOpen = `openDiarioItemSheet('${item.id}', ${item.subId?`'${item.subId}'`:'null'})`;
+  const onOrden = `event.stopPropagation();openOrdenSheet('${item.id}', ${item.subId?`'${item.subId}'`:'null'})`;
   return `<div class="check-item" onclick="${onOpen}">
     <div class="check-box ${item.done?'checked':''}" onclick="event.stopPropagation();${onToggle}">${checkSvg}</div>
     <span class="check-label ${item.done?'done':''}" style="flex:1;">${item.parentName?`<span style="color:var(--text-muted);">${item.parentName} › </span>`:''}${item.text}</span>
-    ${showHora && item.horaInicio ? `<span style="font-size:11px;font-weight:700;color:var(--lav);white-space:nowrap;">${item.horaInicio}${item.horaFin?'–'+item.horaFin:''}</span>`:''}
+    <span class="orden-badge" onclick="${onOrden}">${pos}</span>
   </div>`;
 }
 
@@ -1831,8 +1892,6 @@ function renderDiario(){
   const key=diaVistaSelected;
   const fecha=new Date(key+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   const items=getItemsDelDia(key);
-  const conHora=items.filter(i=>i.horaInicio).sort((a,b)=>a.horaInicio.localeCompare(b.horaInicio));
-  const sinHora=items.filter(i=>!i.horaInicio);
 
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <button class="cal-nav-btn" onclick="diaNav(-1)">‹</button>
@@ -1844,10 +1903,8 @@ function renderDiario(){
       ${renderDiarioMiniCalHTML()}
     </div>
     <div id="diario-list-col" style="flex:1;min-width:0;width:100%;">
-      <div class="section-label" style="margin-top:0;">🕐 Horario del día</div>
-      ${conHora.length ? `<div class="card">${conHora.map(i=>renderDiarioItemRow(i,true)).join('')}</div>` : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0 16px;">Nada con hora puesta todavía.</div>`}
-      <div class="section-label" style="margin-top:20px;">📋 Sin hora asignada</div>
-      ${sinHora.length ? `<div class="card">${sinHora.map(i=>renderDiarioItemRow(i,false)).join('')}</div>` : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente de programar este día.</p></div>`}
+      <div class="section-label" style="margin-top:0;">📋 Orden del día</div>
+      ${items.length ? `<div class="card">${items.map((i,idx)=>renderDiarioItemRow(i,idx+1)).join('')}</div>` : `<div class="empty-state" style="padding:20px;"><p>Nada pendiente este día.</p></div>`}
     </div>
   </div>`;
 
@@ -1866,8 +1923,6 @@ function openDiarioItemSheet(taskId, subId){
   document.getElementById('subtarea-id').value=subId;
   document.getElementById('subtarea-text').value=s.text||'';
   document.getElementById('subtarea-dia').value=s.dia||'';
-  document.getElementById('subtarea-hora-inicio').value=s.horaInicio||'';
-  document.getElementById('subtarea-hora-fin').value=s.horaFin||'';
   document.getElementById('subtarea-sheet').classList.add('open');
 }
 function closeSubtareaSheet(){document.getElementById('subtarea-sheet').classList.remove('open');}
@@ -1876,11 +1931,13 @@ function saveSubtareaSheet(){
   const subId=document.getElementById('subtarea-id').value;
   const text=document.getElementById('subtarea-text').value.trim();
   if(!text){showToast('Escribe el texto');return;}
+  const prev=state.mensualTareas[taskId]?.subtareas?.[subId];
+  const diaNuevo=document.getElementById('subtarea-dia').value||'';
+  const mismoDia = diaNuevo && prev && diaNuevo===prev.dia;
   DB.update(`refugio2/mensualTareas/${taskId}/subtareas/${subId}`,{
     text,
-    dia:document.getElementById('subtarea-dia').value||'',
-    horaInicio:document.getElementById('subtarea-hora-inicio').value||'',
-    horaFin:document.getElementById('subtarea-hora-fin').value||''
+    dia:diaNuevo,
+    orden: mismoDia ? (prev.orden ?? null) : null
   }).then(()=>{closeSubtareaSheet();showToast('Guardado ✓');});
 }
 
