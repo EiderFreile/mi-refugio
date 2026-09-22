@@ -82,6 +82,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:linear-gradient(160de
 .check-box.checked svg{opacity:1;transform:scale(1);}
 .check-label{font-size:14px;color:var(--text);flex:1;transition:all 0.2s;}
 .check-label.done{color:var(--text-muted);text-decoration:line-through;}
+.orden-badge{flex-shrink:0;min-width:24px;height:24px;padding:0 7px;border-radius:8px;background:var(--lav-light);color:var(--lav);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s var(--spring);}
+.orden-badge:active{transform:scale(0.9);}
+.orden-option{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.15s var(--spring);}
+.orden-option:active{transform:scale(0.98);}
+.orden-option.active{border-color:var(--lav);background:var(--lav-light);}
+.orden-option-num{width:28px;height:28px;border-radius:50%;background:var(--lav);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
 /* Progress ring */
 .progress-ring{width:32px;height:32px;}
