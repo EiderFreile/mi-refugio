@@ -1466,9 +1466,9 @@ function mensualNav(dir){
 function renderMensualTareaRow(t, pal){
   const checkSvg=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const boxStyle = (t.done && pal) ? `style="background:${pal.c};border-color:${pal.c};"` : '';
-  return `<div class="check-item" onclick="openMensualTareaSheet('${t.id}')">
+  return `<div class="check-item ${t.prioridad?'prio':''}" onclick="openMensualTareaSheet('${t.id}')">
     <div class="check-box ${t.done?'checked':''}" ${boxStyle} onclick="event.stopPropagation();toggleMensualTarea('${t.id}')">${checkSvg}</div>
-    <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.name}</span>
+    <span class="check-label ${t.done?'done':''}" style="flex:1;">${t.prioridad?'⭐ ':''}${t.name}</span>
   </div>`;
 }
 
@@ -1762,12 +1762,12 @@ function getItemsDelDia(key){
   Object.values(state.mensualTareas||{}).forEach(t=>{
     const tieneSubtareas = t.subtareas && Object.keys(t.subtareas).length>0;
     if(!tieneSubtareas && t.dia===key){
-      items.push({tipo:'tarea', id:t.id, subId:null, text:t.name, done:!!t.done, orden:(typeof t.orden==='number'?t.orden:null), createdAt:t.createdAt||0, parentName:''});
+      items.push({tipo:'tarea', id:t.id, subId:null, text:t.name, done:!!t.done, orden:(typeof t.orden==='number'?t.orden:null), createdAt:t.createdAt||0, parentName:'', prioridad:!!t.prioridad});
     }
     if(tieneSubtareas){
       Object.values(t.subtareas).forEach(s=>{
         if(s.dia===key){
-          items.push({tipo:'subtarea', id:t.id, subId:s.id, text:s.text, done:!!s.done, orden:(typeof s.orden==='number'?s.orden:null), createdAt:s.createdAt||0, parentName:t.name});
+          items.push({tipo:'subtarea', id:t.id, subId:s.id, text:s.text, done:!!s.done, orden:(typeof s.orden==='number'?s.orden:null), createdAt:s.createdAt||0, parentName:t.name, prioridad:!!t.prioridad});
         }
       });
     }
@@ -1880,9 +1880,9 @@ function renderDiarioItemRow(item, pos){
   const onToggle = item.tipo==='subtarea' ? `toggleSubtareaDone('${item.id}','${item.subId}')` : `toggleMensualTarea('${item.id}')`;
   const onOpen = `openDiarioItemSheet('${item.id}', ${item.subId?`'${item.subId}'`:'null'})`;
   const onOrden = `event.stopPropagation();openOrdenSheet('${item.id}', ${item.subId?`'${item.subId}'`:'null'})`;
-  return `<div class="check-item" onclick="${onOpen}">
+  return `<div class="check-item ${item.prioridad?'prio':''}" onclick="${onOpen}">
     <div class="check-box ${item.done?'checked':''}" onclick="event.stopPropagation();${onToggle}">${checkSvg}</div>
-    <span class="check-label ${item.done?'done':''}" style="flex:1;">${item.parentName?`<span style="color:var(--text-muted);">${item.parentName} › </span>`:''}${item.text}</span>
+    <span class="check-label ${item.done?'done':''}" style="flex:1;">${item.prioridad?'⭐ ':''}${item.parentName?`<span style="color:var(--text-muted);">${item.parentName} › </span>`:''}${item.text}</span>
     <span class="orden-badge" onclick="${onOrden}">${pos}</span>
   </div>`;
 }
