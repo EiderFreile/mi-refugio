@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#9B8EC4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mi organizador">
+  <title>Mi organizador</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- Mode bar - solo branding -->
+  <div class="mode-bar"></div>
+
+  <!-- Nav tabs - abajo en móvil, arriba en escritorio via CSS -->
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+
+  <div id="screen-wetlease" class="screen active">
+    <div class="page-header" style="justify-content:flex-start;gap:16px;">
+      <h1 class="page-title">Wet Lease</h1>
+      <button id="wl-template-btn" onclick="openWLTemplateSheet()" style="font-size:13px;color:var(--lav);background:none;border:none;cursor:pointer;font-weight:600;margin-top:6px;">⚙️ Plantilla</button>
+      <button onclick="openWLSheet(null)" style="background:var(--lav);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;">+ Operador</button>
+    </div>
+    <div class="scroll-area">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="filter-btn active" id="wl-tab-in" onclick="setWLTab('in')">Wet Lease In</button>
+        <button class="filter-btn" id="wl-tab-out" onclick="setWLTab('out')">Wet Lease Out</button>
+      </div>
+      <div id="wl-area"></div>
+    </div>
+  </div>
+
+  <div id="screen-recordatorios" class="screen">
+    <div class="page-header">
+      <h1 class="page-title">Notas y recordatorios</h1>
+    </div>
+    <div class="scroll-area"><div id="recordatorios-area"></div></div>
+  </div>
+
+  <div id="screen-formaciones" class="screen">
+    <div class="page-header" style="justify-content:flex-start;gap:16px;">
+      <h1 class="page-title">Formaciones MSM</h1>
+      <button onclick="openFormacionMailsSheet()" style="font-size:13px;color:var(--lav);background:none;border:none;cursor:pointer;font-weight:600;margin-top:6px;">✉️ Mails</button>
+      <button onclick="openFormacionSheet(null)" style="background:var(--lav);color:white;border:none;border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;">+ Persona</button>
+    </div>
+    <div class="scroll-area"><div id="formaciones-area"></div></div>
+  </div>
+</div>
+
+<!-- (sheets antiguos de Mi día/Trabajo — checklists, notas, gastos, tarea, evento, por hacer — eliminados en la limpieza final) -->
+
+<!-- WET LEASE IN TEMPLATE SHEET -->
+<div class="overlay" id="wl-template-sheet" onclick="closeWLTemplateSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Plantilla Wet Lease In</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Estos departamentos y documentos se añadirán solos a cada operador nuevo que crees.</p>
+    <div class="input-group">
+      <label class="input-label">Departamentos que siempre aprueban</label>
+      <div id="wl-template-deps-list"></div>
+      <button class="add-item-btn" onclick="addWLTemplateDep()">+ Añadir departamento</button>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Documentación que siempre pide AESA</label>
+      <div id="wl-template-docs-list"></div>
+      <button class="add-item-btn" onclick="addWLTemplateDoc()">+ Añadir documento</button>
+    </div>
+    <button class="btn-primary" onclick="saveWLTemplate()">Guardar plantilla</button>
+    <button class="btn-ghost" onclick="closeWLTemplateSheet()">Cancelar</button>
+  </div>
+</div>
+
+<!-- WET LEASE IN SHEET -->
+<div class="overlay" id="wl-in-sheet" onclick="closeWLSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="wl-in-sheet-title">Nuevo operador (Wet Lease In)</div>
+    <input type="hidden" id="wl-in-id">
+    <div class="input-group"><label class="input-label">Operador / Aerolínea</label><input class="input-field" id="wl-in-name" placeholder="Nombre del operador"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;">
+      <input type="checkbox" id="wl-in-inicial" onchange="toggleWLFechaVisible()"> 🆕 Está en aprobación inicial (todavía sin fecha de caducidad)
+    </label>
+    <div class="input-group" id="wl-in-fecha-group"><label class="input-label">Fecha de caducidad en lista previa AESA</label><input class="input-field" id="wl-in-fecha" type="date"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;background:var(--green-light);border:1px solid var(--green);border-radius:10px;padding:10px 12px;">
+      <input type="checkbox" id="wl-in-aprobado" onchange="onWLAprobadoToggle()"> ✅ Ya está aprobado (oculta el seguimiento en la tarjeta hasta la próxima renovación)
+    </label>
+    <div class="input-group">
+      <label class="input-label">Departamentos que deben aprobar</label>
+      <div id="wl-in-deps-list"></div>
+      <button class="add-item-btn" onclick="addWLDep('in')">+ Añadir departamento</button>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Documentación pedida por AESA</label>
+      <div id="wl-in-docs-list"></div>
+      <button class="add-item-btn" onclick="addWLDoc('in')">+ Añadir documento</button>
+    </div>
+    <button class="btn-primary" onclick="saveWLOperador('in')">Guardar operador</button>
+    <button class="btn-ghost" onclick="closeWLSheet()">Cancelar</button>
+    <button class="btn-danger" id="wl-in-delete-btn" onclick="deleteWLOperador('in')" style="display:none;">Eliminar operador</button>
+  </div>
+</div>
+
+<!-- WET LEASE OUT SHEET -->
+<div class="overlay" id="wl-out-sheet" onclick="closeWLSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="wl-out-sheet-title">Nuevo operador (Wet Lease Out)</div>
+    <input type="hidden" id="wl-out-id">
+    <div class="input-group"><label class="input-label">Operador / Aerolínea</label><input class="input-field" id="wl-out-name" placeholder="Nombre del operador"></div>
+    <div class="input-group">
+      <label class="input-label">Departamentos que deben contestar</label>
+      <div id="wl-out-deps-list"></div>
+      <button class="add-item-btn" onclick="addWLDep('out')">+ Añadir departamento</button>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Documentación que necesitas del operador</label>
+      <div id="wl-out-docs-list"></div>
+      <button class="add-item-btn" onclick="addWLDoc('out')">+ Añadir documento</button>
+    </div>
+    <button class="btn-primary" onclick="saveWLOperador('out')">Guardar operador</button>
+    <button class="btn-ghost" onclick="closeWLSheet()">Cancelar</button>
+    <button class="btn-danger" id="wl-out-delete-btn" onclick="deleteWLOperador('out')" style="display:none;">Eliminar operador</button>
+  </div>
+</div>
+
+<!-- FORMACIÓN MSM SHEET -->
+<div class="overlay" id="formacion-sheet" onclick="closeFormacionSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="formacion-sheet-title">Nueva persona</div>
+    <input type="hidden" id="formacion-id">
+    <div class="input-group"><label class="input-label">Nombre</label><input class="input-field" id="formacion-name" placeholder="Nombre de la persona"></div>
+    <div class="input-group"><label class="input-label">Departamento</label><input class="input-field" id="formacion-dept" placeholder="Ej: Operaciones"></div>
+    <div class="input-group"><label class="input-label">Caducidad actual</label><input class="input-field" id="formacion-caducidad" type="date"></div>
+    <button class="btn-primary" onclick="saveFormacion()">Guardar</button>
+    <button class="btn-ghost" onclick="closeFormacionSheet()">Cancelar</button>
+    <button class="btn-danger" id="formacion-delete-btn" onclick="deleteFormacion()" style="display:none;">Eliminar</button>
+  </div>
+</div>
+
+<!-- FORMACIÓN MSM · MARCAR REALIZADO SHEET -->
+<div class="overlay" id="formacion-realizar-sheet" onclick="closeFormacionRealizarSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Curso realizado</div>
+    <input type="hidden" id="formacion-realizar-id">
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Indica la fecha en la que ha realizado el curso. Calculamos la nueva caducidad automáticamente (2 años después).</p>
+    <div class="input-group"><label class="input-label">Fecha de realización</label><input class="input-field" id="formacion-realizar-fecha" type="date"></div>
+    <button class="btn-primary" onclick="confirmFormacionRealizada()">Guardar y calcular nueva caducidad</button>
+    <button class="btn-ghost" onclick="closeFormacionRealizarSheet()">Cancelar</button>
+  </div>
+</div>
+
+<!-- FORMACIÓN MSM · MAILS DE AVISO SHEET -->
+<div class="overlay" id="formacion-mails-sheet" onclick="closeFormacionMailsSheet()">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-width:560px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Mails de aviso MSM</div>
+    <div class="input-group">
+      <label class="input-label">Mail general</label>
+      <div id="formacion-mail-normal" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;line-height:1.6;max-height:260px;overflow-y:auto;"></div>
+      <button class="btn-sm-lav" style="margin-top:8px;" onclick="copyFormacionMail('normal')">📋 Copiar mail general</button>
+    </div>
+    <div class="input-group" style="margin-top:20px;">
+      <label class="input-label">Mail TCP / Flight Crew</label>
+      <div id="formacion-mail-tcpfc" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;line-height:1.6;max-height:260px;overflow-y:auto;"></div>
+      <button class="btn-sm-lav" style="margin-top:8px;" onclick="copyFormacionMail('tcpfc')">📋 Copiar mail TCP/Flight Crew</button>
+    </div>
+    <button class="btn-ghost" onclick="closeFormacionMailsSheet()">Cerrar</button>
+  </div>
+</div>
+
+<!-- CASA · TAREA SHEET -->
+<!-- (casa-tarea-sheet, evento-sheet y porhacer-sheet eliminados en la limpieza final) -->
+
+<div id="toast"></div>
+
+<script src="firebase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
